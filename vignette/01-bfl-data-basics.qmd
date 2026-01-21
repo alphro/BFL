@@ -1,0 +1,258 @@
+---
+title: "01-bf_data_basics"
+format: pdf
+---
+
+From PHMRC to BFL: the Absolute Basics
+
+This vignette explains, at the most basic level, what information BFL actually needs, starting from a raw PHMRC-style dataset.
+
+This is written to teach both the user and the author what is going on.
+
+# 1 . What a PHMRC dataset really is
+
+A PHMRC-style dataset is just a table.
+
+-   Each **row** represents **one individual**.
+
+-   Each **column** represents **some attribute** of that individual.
+
+At minimum, the table contains **three types of columns**:
+
+## (1) A site/region identifier
+
+Example:
+
+```         
+site = "AP", "Mexico", "Bohol"
+```
+
+This column tells us **which individuals belong together**.
+
+Without a site column, BFL does not make sense.
+
+## (2) A cause-of-death label
+
+```         
+cause = "Stroke", "Malaria", "TB"
+```
+
+This is a **categorical variable** describing the outcome we want to model.
+
+Eventually, models convert these labels into integers:
+
+```         
+Stroke  → 1
+Malaria → 2
+TB      → 3
+```
+
+But conceptually, this column answers:
+
+> What happened to this person?
+
+## (3) Symptom indicators
+
+Example columns:
+
+```         
+fever, cough, chest_pain, headache, ...
+```
+
+Each row has values like:
+
+```         
+0 / 1
+TRUE / FALSE
+Yes / No
+```
+
+These columns describe observable evidence.
+
+# 2. First transformation: split by site
+
+BFL never works on the full table at once.
+
+The first operation is always:
+
+> Split the dataset by site.
+
+For a site "AP":
+
+```{r}
+phmrc_AP <- phmrc[phmrc$site == "AP", ]
+```
+
+Now phmrc_AP is still just a table, but it contains only one region.
+
+# 3. Second transformation: extract X and Y
+
+From the site-specific table, we extract exactly two objects.
+
+### **(A) Feature matrix X**
+
+We take only the symptom columns and convert them to a numeric matrix:
+
+```{r}
+X_AP <- as.matrix(phmrc_AP[, symptom_columns])
+```
+
+This matrix has shape:
+
+```         
+X_AP : N x P
+```
+
+-   N = number of individuals at the site
+
+-   P = number of symptoms
+
+This is the only individual-level data used later for prediction.
+
+### **(B) Cause vector Y**
+
+We take the cause column and encode it as intergers:
+
+```{r}
+Y_AP <- as.integer(factor(phmrc_AP$cause))
+```
+
+This vector has length N and values in:
+
+```{1,2, ..., C_AP}
+```
+
+where C_AP is the nubmer of causes observed at that site.
+
+# 4. At this point, PHMRC is gone
+
+After extraction, the original table is no longer needed.
+
+Everything downstream is built from:
+
+```{r}
+X_AP # N x P matrix
+Y_AP # length-N intger vector
+```
+
+No person IDs.
+
+No site column.
+
+No raw table.
+
+# 5. What LCVA does to (X,Y)
+
+LCVA does not care about individual rows.
+
+It learns relationships between symptoms and causes.
+
+From (X_AP, Y_AP), LCVA produces a matrix:
+
+```         
+posterior_phi_AP: P x C_AP
+```
+
+where:
+
+```         
+posterior_phi_AP[p,c] = P(symptom p|cause c)
+```
+
+interpretation:
+
+-   Rows = symptoms
+
+-   Columns = causes
+
+-   Values = probabiltiies
+
+This matrix summarizes all individuals at the site.
+
+# 6. What survives and what is discarded
+
+After LCVA:\
+\
+**Discarded**
+
+-   Individual rows
+
+-   Person idenities
+
+-   Raw symptom patterns
+
+-   Raw cause labels
+
+\
+**Kept**
+
+-   posterior_phi_AP (P x C Matrix)
+
+-   The list of cause IDs used
+
+-   The ordering of symptoms
+
+This is why LCVA is often described as:
+
+> Turning people into beliefs.
+
+# 7. What BFL actually needs
+
+For each site, BFL needs only:
+
+```{r}
+list(
+  posterior_phi = posterior_phi_AP,
+  cause_ids = c(1,2,...,C_AP)
+)
+```
+
+That is the entire input to the global BFL model.
+
+No individual-level data enters BFL.
+
+# 8. What happens with multiple sites
+
+Suppose we have three sites:
+
+```         
+AP      → posterior_phi_AP (P × C_AP)
+Mexico  → posterior_phi_MX (P × C_MX)
+Bohol   → posterior_phi_BO (P × C_BO)
+```
+
+These matrices may:
+
+-   have different number of caues
+
+-   share some causes
+
+-   miss others entirely
+
+BFL's job is to:
+
+1.  Align causes across sites
+2.  Combine these matrices
+3.  Infer global parameters that summarize all sites
+
+BFL never sees individual rows.
+
+# 9. One sentence summary
+
+> **PHMRC → (X, Y) → LCVA → posterior_phi → BFL**
+
+Everythign else in the package exists to support this transformation.
+
+# 10. Why this matters
+
+Understanding this flow makes it clear:
+
+-   why privacy is preserved
+
+-   why LCVA and BFL are seperate
+
+-   why BFL aggregates matrices, not people
+
+-   why prediction happen locally
+
+Once this mental model is clear, the API design becomes obvious.
