@@ -1,1 +1,17 @@
-.Rproj.user
+# ---- R / RStudio ----
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+
+# ---- macOS ----
+.DS_Store
+
+# ---- Package build artifacts ----
+inst/doc
+*.tar.gz
+
+# ---- Temporary files ----
+*.swp
+*.bak
+*~
