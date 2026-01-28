@@ -4,24 +4,19 @@
 #' This function runs locally and never shares individual-level data.
 #'
 #' @param global_fit Output of run_BFL_global()
-#' @param X Numeric matrix (N x P) of local symptoms
 #' @param return_probs Logical; return per-individual probabilities
 #'
 #' @export
-predict_BFL_local <- function(global_fit, X = NULL, return_probs = TRUE) {
+predict_BFL_local <- function(global_fit, return_probs = TRUE) {
   validate_global_fit(global_fit)
 
   phi <- global_fit$phi
   N <- nrow(phi); C <- ncol(phi)
 
-  if (!is.nugll(X) && nrow(X) != N) {
-    stop("X and phi dimension mismatch.")
-  }
-
   pi <- global_fit$pi
   pi <- pi / sum(pi)
 
-  # unnormalized post probs
+  # unnormalized posterior probs
   probs <- phi * matrix(rep(pi, each = N), nrow = N, ncol = C)
   probs <- probs / rowSums(probs)
 
@@ -30,8 +25,8 @@ predict_BFL_local <- function(global_fit, X = NULL, return_probs = TRUE) {
 
   if (return_probs) {
     colnames(probs) <- global_fit$causes
-    return(list(pred = pred, prob = probs))
+    list(pred = pred, prob = probs)
   } else {
-    return(list(pred = pred))
+    list(pred = pred)
   }
 }
