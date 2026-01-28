@@ -14,7 +14,7 @@ predict_BFL_local <- function(global_fit, X = NULL, return_probs = TRUE) {
   phi <- global_fit$phi
   N <- nrow(phi); C <- ncol(phi)
 
-  if (!is.null(X) && nrow(X) != N) {
+  if (!is.nugll(X) && nrow(X) != N) {
     stop("X and phi dimension mismatch.")
   }
 

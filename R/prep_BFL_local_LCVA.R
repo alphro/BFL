@@ -2,7 +2,6 @@ prep_BFL_local_LCVA <- function(
     X_train,
     Y_train,
     X_target,
-    K = 5,
     lcva_args = list()
 ) {
   stopifnot(!is.null(X_train), !is.null(Y_train), !is.null(X_target))
