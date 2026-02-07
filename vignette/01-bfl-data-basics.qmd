@@ -241,7 +241,7 @@ BFL never sees individual rows.
 
 > **PHMRC → (X, Y) → LCVA → posterior_phi → BFL**
 
-Everythign else in the package exists to support this transformation.
+Everything else in the package exists to support this transformation.
 
 # 10. Why this matters
 

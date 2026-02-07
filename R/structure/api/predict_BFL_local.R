@@ -4,52 +4,33 @@
 #' This function runs locally and never shares individual-level data.
 #'
 #' @param global_fit Output of run_BFL_global()
-#' @param X Numeric matrix (N x P) of local symptoms
 #' @param return_probs Logical; return per-individual probabilities
 #'
 #' @export
-predict_BFL_local <- function(
-    global_fit,
-    X,
-    return_probs = FALSE
-) {
-
+predict_BFL_local <- function(global_fit, return_probs = TRUE) {
   validate_global_fit(global_fit)
 
-  X <- as.matrix(X)
-  storage.mode(X) <- "numeric"
-
-  log_pi <- safe_log(global_fit$pi)
-
-  # phi must be provided via global_fit
-  # expected shape: P x C
   phi <- global_fit$phi
+  N <- nrow(phi); C <- ncol(phi)
 
-  if (ncol(X) != nrow(phi)) {
-    stop("X and phi dimension mismatch.")
-  }
+  pi <- global_fit$pi
+  pi <- pi / sum(pi)
 
-  # Compute log posterior up to normalization
-  log_post <- X %*% safe_log(phi)
-  log_post <- sweep(log_post, 2, log_pi, "+")
+  # log posterior up to constant
+  logp <- log(pmax(phi, 1e-300)) + matrix(log(pi), nrow = N, ncol = C, byrow = TRUE)
 
-  # Normalize
-  probs <- apply(log_post, 1, function(x) {
-    softmax(x)
-  })
-  probs <- t(probs)
+  # stable row softmax
+  logp <- logp - apply(logp, 1, max)
+  probs <- exp(logp)
+  probs <- probs / rowSums(probs)
 
-  y_pred <- apply(probs, 1, argmax)
-  csmf_hat <- colMeans(probs)
-
-  out <- list(
-    y_pred = y_pred,
-    csmf_hat = csmf_hat
-  )
+  pred_idx <- max.col(probs, ties.method = "first")
+  pred <- global_fit$causes[pred_idx]
 
   if (return_probs) {
-    out$probs <- probs
+    colnames(probs) <- global_fit$causes
+    list(pred = pred, prob = probs)
+  } else {
+    list(pred = pred)
   }
-
-  out
 }

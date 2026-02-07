@@ -7,7 +7,7 @@
 #' @param stan_args List of arguments passed to rstan::sampling
 #'
 #' @export
-run_BFL_global <- function(
+run_BFL <- function(
     local_summaries,
     stan_args = list(iter = 2000, chains = 4, seed = 12345)
 ) {
@@ -20,8 +20,10 @@ run_BFL_global <- function(
 
   fit <- run_bfl_stan(stan_data, stan_args)
 
-  # Build a global phi on the TARGET X (N x C) by weighting each model's phi
-  phi_list <- aligned$aligned_phi              # list of N x C matrices
+  # Build a global phi (N x C) by weighting each site's phi
+  phi_list_na <- aligned$aligned_phi
+  phi_list <- lapply(phi_list_na, function(mat) { mat[is.na(mat)] <- 0; mat })
+
   N <- nrow(phi_list[[1]])
   C <- ncol(phi_list[[1]])
   M <- length(phi_list)
@@ -34,12 +36,11 @@ run_BFL_global <- function(
   for (m in seq_len(M)) {
     phi_global <- phi_global + phi_list[[m]] * matrix(rep(w[, m], each = N), nrow = N, ncol = C)
   }
-  phi_global <- pmin(pmax(phi_global, 1e-12), 1 - 1e-12)
 
   list(
     pi = fit$pi,
     lambda = fit$lambda,
-    phi = phi_global,                 # <-- add this
+    phi = phi_global,
     causes = aligned$global_causes,
     stan_fit = fit$stan_fit
   )
