@@ -13,19 +13,42 @@ run_BFL(
 )
 }
 \arguments{
-\item{local_summaries}{Named list of local summary objects}
+\item{local_summaries}{Named list of model summary objects.
+Each element must contain per-observation likelihoods aligned
+to a common target dataset.}
 
-\item{X_target}{Target symptom matrix/data.frame used only to define canonical row order via hashing}
+\item{X_target}{Target feature matrix/data.frame. Used only to
+define a canonical row order via hashing.}
 
-\item{Y_target}{Optional target labels (use NA for unknown). If NULL, runs no-partial-label model.}
+\item{Y_target}{Optional target labels (use NA for unknown).
+If NULL, runs the no-partial-label model.}
 
-\item{label_shift}{Logical; if TRUE and Y_target is provided, uses unbalanced/label-shift variant.}
+\item{label_shift}{Logical; if TRUE and Y_target is provided,
+uses the unbalanced/label-shift variant.}
 
-\item{stan_args}{List of arguments passed to rstan::sampling}
+\item{stan_args}{List of arguments passed to rstan::sampling.}
+}
+\value{
+A list with components:
+\describe{
+\item{pi}{Posterior draws of class prevalence (S x C).}
+\item{lambda}{Posterior draws of per-class model weights (S x C x M).}
+\item{phi}{Per-model likelihoods aligned to target rows and global classes (N x C x M).}
+\item{causes}{Character vector of global class labels (length C).}
+\item{model_names}{Character vector of model names (length M).}
+\item{row_hash}{Row hashes for X_target (length N).}
+\item{stan_fit}{Underlying rstan fit object.}
+}
 }
 \description{
-Aggregates local LCVA summaries into a global BFL model using Stan.
-This function never sees individual-level data from \emph{other} sites, but
-it can take target-site X_target (for row hashing / alignment) and optional
-target labels for partial-label variants.
+Aggregates per-model likelihood summaries into a global Bayesian
+ensemble using Stan. Each model contributes a matrix of
+per-observation, per-class likelihoods, and BFL learns
+posterior prevalence (pi) and model weights (lambda).
+}
+\details{
+This function is model-agnostic. It does not assume the local
+summaries were produced by LCVA. Any method that supplies
+per-observation class likelihoods in the required structure
+can be used as input.
 }

@@ -4,14 +4,25 @@
 \alias{predict_BFL}
 \title{Predict causes using a global BFL fit}
 \usage{
-predict_BFL(global_fit, return_probs = TRUE)
+predict_BFL(
+  global_fit,
+  sampling = FALSE,
+  ndraws = NULL,
+  seed = NULL,
+  return_probs = TRUE
+)
 }
 \arguments{
 \item{global_fit}{Output of run_BFL()}
 
-\item{return_probs}{Logical; return per-individual probabilities}
+\item{sampling}{Logical; if TRUE, use posterior predictive sampling.}
+
+\item{ndraws}{Number of posterior draws to use when sampling (NULL = all).}
+
+\item{seed}{Optional seed for reproducibility (only used when sampling = TRUE or ndraws not NULL).}
+
+\item{return_probs}{Logical; return posterior-mean probabilities.}
 }
 \description{
-Applies global BFL parameters to local symptom data.
-This function runs locally and never shares individual-level data.
+Predict causes using a global BFL fit
 }

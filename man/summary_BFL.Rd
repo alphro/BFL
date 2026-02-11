@@ -2,19 +2,19 @@
 % Please edit documentation in R/summary_BFL.R
 \name{summary_BFL}
 \alias{summary_BFL}
-\title{Scientist-facing summary for BFL predictions}
+\title{Summary for BFL predictions}
 \usage{
-summary_BFL(pred_out, y_true, csmf_fun = csmf_accuracy, cause_level = FALSE)
+summary_BFL(pred_out, y_true, cause_level = FALSE)
 }
 \arguments{
-\item{pred_out}{Output of predict_BFL(return_probs = TRUE)}
+\item{pred_out}{Output of predict_BFL(return_probs = TRUE). Must contain
+\code{pred} and \code{prob}. May also contain \code{draws} (S x N integer indices).}
 
-\item{y_true}{Character vector of true causes (length N)}
+\item{y_true}{Character vector of true causes (length N).}
 
-\item{csmf_fun}{Function(pi_hat, pi_true) -> numeric}
-
-\item{cause_level}{Logical; if TRUE, compute per-cause table (slow)}
+\item{cause_level}{Logical; if TRUE, compute per-cause table (slow).}
 }
 \description{
-Scientist-facing summary for BFL predictions
+Computes top-1 accuracy and CSMF accuracy. If \code{pred_out$draws} is present
+(sampling mode), top-1 uses majority vote across draws (paper style).
 }

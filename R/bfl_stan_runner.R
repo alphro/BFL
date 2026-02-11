@@ -14,7 +14,7 @@ run_bfl_stan <- function(
   stan_file <- switch(
     variant,
     no_partial = "no_partial_labels.stan",
-    balanced   = "partial_labels_false.stan",
+    balanced   = "partial_labels_shift_false.stan",
     unbalanced = "partial_labels_shift_true.stan"
   )
 
@@ -33,13 +33,13 @@ run_bfl_stan <- function(
   post <- rstan::extract(fit)
 
   out <- list(
-    pi = colMeans(post$pi),
+    pi = post$pi,
     lambda = post$lambda,
     stan_fit = fit
   )
 
   if (variant == "unbalanced") {
-    out$pi_O <- colMeans(post$pi_O)
+    out$pi_O <- post$pi_O
   }
 
   out

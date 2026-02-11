@@ -1,37 +1,20 @@
 #' Predict causes using a global BFL fit
 #'
-#' Applies global BFL parameters to local symptom data.
-#' This function runs locally and never shares individual-level data.
-#'
 #' @param global_fit Output of run_BFL()
-#' @param return_probs Logical; return per-individual probabilities
+#' @param sampling Logical; if TRUE, use posterior predictive sampling.
+#' @param ndraws Number of posterior draws to use when sampling (NULL = all).
+#' @param seed Optional seed for reproducibility (only used when sampling = TRUE or ndraws not NULL).
+#' @param return_probs Logical; return posterior-mean probabilities.
 #'
 #' @export
-predict_BFL <- function(global_fit, return_probs = TRUE) {
-  validate_global_fit(global_fit)
-
-  phi <- global_fit$phi
-  N <- nrow(phi); C <- ncol(phi)
-
-  pi <- global_fit$pi
-  pi <- pi / sum(pi)
-
-  # log posterior up to constant
-  logp <- log(pmax(phi, 1e-300)) +
-    matrix(log(pi), nrow = N, ncol = C, byrow = TRUE)
-
-  # stable row softmax
-  logp <- logp - apply(logp, 1, max)
-  probs <- exp(logp)
-  probs <- probs / rowSums(probs)
-
-  pred_idx <- max.col(probs, ties.method = "first")
-  pred <- global_fit$causes[pred_idx]
-
-  if (return_probs) {
-    colnames(probs) <- global_fit$causes
-    list(pred = pred, prob = probs)
+predict_BFL <- function(global_fit,
+                        sampling = FALSE,
+                        ndraws = NULL,
+                        seed = NULL,
+                        return_probs = TRUE) {
+  if (isTRUE(sampling)) {
+    predict_BFL_sampling(global_fit, ndraws = ndraws, seed = seed, return_probs = return_probs)
   } else {
-    list(pred = pred)
+    predict_BFL_deterministic(global_fit, return_probs = return_probs)
   }
 }

@@ -2,5 +2,6 @@
 
 export(local_LCVA)
 export(predict_BFL)
+export(predict_BFL2)
 export(run_BFL)
 export(summary_BFL)
