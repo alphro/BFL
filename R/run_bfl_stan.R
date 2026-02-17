@@ -1,7 +1,15 @@
-# PURPOSE:
-# Run a BFL Stan model (no-partial, balanced, or unbalanced)
-# and extract posterior summaries.
-
+#' Run a BFL Stan model and extract posterior draws
+#'
+#' Internal helper used by \code{run_BFL()}. Selects the appropriate Stan program
+#' for the requested variant, runs MCMC via \pkg{rstan}, and returns posterior draws.
+#'
+#' @param stan_data Named list matching the Stan data block.
+#' @param stan_args List with Stan sampling args (iter, chains, seed, ...).
+#' @param variant One of "no_partial", "balanced", "unbalanced".
+#'
+#' @return A list with posterior draws (pi, lambda, and optionally pi_O) and the Stan fit.
+#'
+#' @keywords internal
 run_bfl_stan <- function(
     stan_data,
     stan_args,

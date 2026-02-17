@@ -95,6 +95,6 @@ summary_BFL <- function(pred_out, y_true, cause_level = FALSE) {
   }) |>
     dplyr::bind_rows() |>
     dplyr::arrange(dplyr::desc(prevalence))
-
+a
   list(population = population, per_cause = per_cause)
 }

@@ -2,27 +2,27 @@
 % Please edit documentation in R/predict_BFL.R
 \name{predict_BFL}
 \alias{predict_BFL}
-\title{Predict causes using a global BFL fit}
+\title{Predict causes from a fitted global BFL model}
 \usage{
-predict_BFL(
-  global_fit,
-  sampling = FALSE,
-  ndraws = NULL,
-  seed = NULL,
-  return_probs = TRUE
-)
+predict_BFL(global_fit, seed = NULL)
 }
 \arguments{
-\item{global_fit}{Output of run_BFL()}
+\item{global_fit}{Output of \code{run_BFL()}.}
 
-\item{sampling}{Logical; if TRUE, use posterior predictive sampling.}
-
-\item{ndraws}{Number of posterior draws to use when sampling (NULL = all).}
-
-\item{seed}{Optional seed for reproducibility (only used when sampling = TRUE or ndraws not NULL).}
-
-\item{return_probs}{Logical; return posterior-mean probabilities.}
+\item{seed}{Optional integer seed for reproducible sampling.}
+}
+\value{
+A list with components:
+\describe{
+\item{draws_int}{Matrix (S x N) of integer class draws in 1..C.}
+\item{draws}{Matrix (S x N) of cause label draws (character).}
+\item{causes}{Character vector of class labels (length C).}
+\item{pi}{Posterior draws of class prevalence (S x C).}
+\item{model}{User-specified BFL variant.}
+\item{row_hash}{Character vector of row hashes (length N), if present.}
+}
 }
 \description{
-Predict causes using a global BFL fit
+Returns posterior predictive draws for each target observation. Draws are
+returned both as integer class indices (1..C) and as cause labels.
 }

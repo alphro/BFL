@@ -25,6 +25,18 @@
 #
 # This function MUST remain schema-stable.
 # ------------------------------------------------------------
+
+#' Build Stan data (core) for BFL
+#'
+#' Internal helper that converts an aligned local-summaries object into the
+#' schema used by all BFL Stan variants.
+#'
+#' @param aligned Output of `align_local_summaries()`. Must contain:
+#'   - `aligned_phi`: named list of N x C matrices (one per local model).
+#'
+#' @return A Stan data list shared across all BFL variants.
+#'
+#' @keywords internal
 build_bfl_stan_data <- function(aligned) {
 
   phi_list <- aligned$aligned_phi
@@ -85,6 +97,20 @@ build_bfl_stan_data <- function(aligned) {
 #   - Y_known[N]
 #   - Y[N]  (cause index in 1..num_causes)
 # ------------------------------------------------------------
+
+#' Build Stan data (balanced partial labels) for BFL
+#'
+#' Internal helper that augments the core BFL Stan data with partial-label fields
+#' for the *balanced* model variant.
+#'
+#' @param aligned Output of `align_local_summaries()`.
+#' @param Y_known Integer vector (length N): 1 if label observed, 0 if missing.
+#' @param Y_idx Integer vector (length N): cause index in 1..C (dummy value allowed
+#'   where Y_known == 0).
+#'
+#' @return Stan data list for the balanced partial-label Stan model.
+#'
+#' @keywords internal
 build_bfl_stan_data_balanced <- function(aligned, Y_known, Y_idx) {
 
   stan_data <- build_bfl_stan_data(aligned)
@@ -111,6 +137,20 @@ build_bfl_stan_data_balanced <- function(aligned, Y_known, Y_idx) {
 #     - balanced: one prevalence pi
 #     - unbalanced: pi + pi_O
 # ------------------------------------------------------------
+
+#' Build Stan data (unbalanced partial labels) for BFL
+#'
+#' Internal helper that augments the core BFL Stan data with partial-label fields
+#' for the *unbalanced/label-shift* model variant.
+#'
+#' @param aligned Output of `align_local_summaries()`.
+#' @param Y_known Integer vector (length N): 1 if label observed, 0 if missing.
+#' @param Y_idx Integer vector (length N): cause index in 1..C (dummy value allowed
+#'   where Y_known == 0).
+#'
+#' @return Stan data list for the unbalanced partial-label Stan model.
+#'
+#' @keywords internal
 build_bfl_stan_data_unbalanced <- function(aligned, Y_known, Y_idx) {
 
   stan_data <- build_bfl_stan_data(aligned)

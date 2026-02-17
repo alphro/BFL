@@ -9,46 +9,48 @@ run_BFL(
   X_target,
   Y_target = NULL,
   label_shift = FALSE,
+  model = c("Base", "Domain", "Partial", "Mix"),
   stan_args = list(iter = 2000, chains = 4, seed = 12345)
 )
 }
 \arguments{
-\item{local_summaries}{Named list of model summary objects.
-Each element must contain per-observation likelihoods aligned
-to a common target dataset.}
+\item{local_summaries}{Named list of local summary objects. Each element must contain:
+\itemize{
+\item \code{posterior_phi}: numeric matrix (\eqn{N \times C_m}) of per-record class
+scores/probabilities for the target set (rows align to \code{X_target}).
+\item \code{cause_ids}: character vector (length \eqn{C_m}) giving column labels.
+\item \code{target_info$row_hash}: character vector (length \eqn{N}) for row alignment.
+}}
 
-\item{X_target}{Target feature matrix/data.frame. Used only to
-define a canonical row order via hashing.}
+\item{X_target}{Target feature matrix/data.frame. Used only to define canonical
+row identity via hashing.}
 
-\item{Y_target}{Optional target labels (use NA for unknown).
-If NULL, runs the no-partial-label model.}
+\item{Y_target}{Optional target labels (use NA for unknown). If NULL, runs the
+no-partial-label model.}
 
-\item{label_shift}{Logical; if TRUE and Y_target is provided,
-uses the unbalanced/label-shift variant.}
+\item{label_shift}{Logical; if TRUE and \code{Y_target} provided, uses the
+unbalanced/label-shift variant.}
 
-\item{stan_args}{List of arguments passed to rstan::sampling.}
+\item{model}{One of \code{"Base"}, \code{"Domain"}, \code{"Partial"}, \code{"Mix"}.
+Currently used for bookkeeping (stored in the output).}
+
+\item{stan_args}{List of arguments passed to Stan sampling.}
 }
 \value{
 A list with components:
 \describe{
 \item{pi}{Posterior draws of class prevalence (S x C).}
 \item{lambda}{Posterior draws of per-class model weights (S x C x M).}
-\item{phi}{Per-model likelihoods aligned to target rows and global classes (N x C x M).}
+\item{phi}{Per-model scores aligned to target rows and global classes (N x C x M).}
 \item{causes}{Character vector of global class labels (length C).}
 \item{model_names}{Character vector of model names (length M).}
-\item{row_hash}{Row hashes for X_target (length N).}
-\item{stan_fit}{Underlying rstan fit object.}
+\item{row_hash}{Row hashes for \code{X_target} (length N).}
+\item{model}{User-specified BFL variant (bookkeeping).}
 }
 }
 \description{
-Aggregates per-model likelihood summaries into a global Bayesian
-ensemble using Stan. Each model contributes a matrix of
-per-observation, per-class likelihoods, and BFL learns
-posterior prevalence (pi) and model weights (lambda).
-}
-\details{
-This function is model-agnostic. It does not assume the local
-summaries were produced by LCVA. Any method that supplies
-per-observation class likelihoods in the required structure
-can be used as input.
+Aggregates per-model per-record class scores into a global Bayesian ensemble
+using Stan. Each local model contributes an \eqn{N \times C_m} matrix over the
+same target records; BFL learns posterior class prevalence (\code{pi}) and
+per-class model weights (\code{lambda}).
 }
