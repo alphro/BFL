@@ -2,9 +2,12 @@
 title: "BFL: End-to-End Toy Workflow"
 output: rmarkdown::html_vignette
 vignette: >
+  %\VignetteEncoding{UTF-8}
   %\VignetteIndexEntry{BFL: End-to-End Toy Workflow}
   %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
 ```{r, include = FALSE}
@@ -23,23 +26,30 @@ set.seed(1)
 
 # Overview
 
-This vignette demonstrates a complete workflow using only functions exported by {BFL}:
-	1.	Generate a fully-labeled toy VA-like dataset
-	2.	Use make_label_mask() to derive the observed-label structure for:
+This vignette demonstrates a complete workflow using only functions
+exported by {BFL}:
+
+1\. Generate a fully-labeled toy VA-like dataset
+
+2\. Use make_label_mask() to derive the observed-label structure for:
 Base, Domain, Partial, Mix
-	3.	(Optional) Train/predict local LCVA models:
-	•	single_lcva()
-	•	multi_lcva()
-	4.	Run global aggregation with run_BFL()
-	5.	Sample posterior predictive draws with predict_BFL()
-	6.	Evaluate with score_BFL() and interpret metrics (Top-1 + CSMF)
+
+3\. (Optional) Train/predict local LCVA models: • single_lcva() •
+multi_lcva()
+
+4\. Run global aggregation with run_BFL()
+
+5\. Sample posterior predictive draws with predict_BFL()
+
+6\. Evaluate with score_BFL() and interpret metrics (Top-1 + CSMF)
 
 See the package manual for function definitions and return objects.
 
 # Generating a toy dataset
 
-We simulate binary symptoms X and categorical causes Y.
-This is not a realistic VA generative model. It’s a lightweight scaffold for demonstrating the API.
+We simulate binary symptoms X and categorical causes Y. This is not a
+realistic VA generative model. It’s a lightweight scaffold for
+demonstrating the API.
 
 ```{r}
 simulate_va <- function(N, P, causes = c("A","B","C"), p_symptom = 0.25) {
@@ -68,18 +78,23 @@ table(Y_true)
 
 # Optional: make_label_mask() — turning full labels into regimes
 
-In simulations we have full labels (Y_true).
-But BFL regimes differ by which labels are observed vs hidden.
+In simulations we have full labels (Y_true). But BFL regimes differ by
+which labels are observed vs hidden.
 
-make_label_mask() does this for you: it masks labels (sets some to NA) and returns
-the index sets needed by different variants (Base/Domain/Partial/Mix).
+make_label_mask() does this for you: it masks labels (sets some to NA)
+and returns the index sets needed by different variants
+(Base/Domain/Partial/Mix).
 
-The important outputs are:
-	•	Y_obs: observed label vector with NA for hidden labels
-	•	missing_idx: rows treated as unlabeled
-	•	stan_idx: rows that Stan uses
-	•	plus regime-specific sets (labeled_idx, domain_idx, partial_idx) for some models
-	
+The important outputs are: • Y_obs: observed label vector with NA for
+hidden labels
+
+• missing_idx: rows treated as unlabeled
+
+• stan_idx: rows that Stan uses
+
+• plus regime-specific sets (labeled_idx, domain_idx, partial_idx) for
+some models
+
 ```{r}
 miss_prop <- 0.80  # 80% unlabeled => 20% labeled
 
@@ -105,6 +120,7 @@ c(
 ## How the dataset differs across Base / Domain / Partial / Mix
 
 The same target dataset becomes different "observed-label views".
+
 ```{r}
 preview <- data.frame(
   Y_true  = Y_true,
@@ -117,26 +133,37 @@ preview <- data.frame(
 head(preview, 12)
 
 counts <- rbind(
-  Base    = c(labeled = sum(!is.na(mask_base$Y_obs)), missing = length(mask_base$missing_idx), stan = length(mask_base$stan_idx)),
-  Domain  = c(labeled = sum(!is.na(mask_dom$Y_obs)),  missing = length(mask_dom$missing_idx),  stan = length(mask_dom$stan_idx)),
-  Partial = c(labeled = sum(!is.na(mask_par$Y_obs)),  missing = length(mask_par$missing_idx),  stan = length(mask_par$stan_idx)),
-  Mix     = c(labeled = sum(!is.na(mask_mix$Y_obs)),  missing = length(mask_mix$missing_idx),  stan = length(mask_mix$stan_idx))
+  Base    = c(labeled = sum(!is.na(mask_base$Y_obs)),
+              missing = length(mask_base$missing_idx), stan = length(mask_base$stan_idx)),
+  Domain  = c(labeled = sum(!is.na(mask_dom$Y_obs)),
+              missing = length(mask_dom$missing_idx),  stan = length(mask_dom$stan_idx)),
+  Partial = c(labeled = sum(!is.na(mask_par$Y_obs)),
+              missing = length(mask_par$missing_idx),  stan = length(mask_par$stan_idx)),
+  Mix     = c(labeled = sum(!is.na(mask_mix$Y_obs)), 
+              missing = length(mask_mix$missing_idx),  stan = length(mask_mix$stan_idx))
 )
 counts
 ```
 
 Interpretation (high level):
-	•	Base: no labels observed; Stan uses all rows
-	•	Domain: Stan sees only unlabeled rows (stan_idx == missing_idx)
-	•	Partial: Stan sees all rows; labels are partially missing
-	•	Mix: like Partial, but a labeled “domain” subset is excluded from Stan
-	
+
+• Base: no labels observed; Stan uses all rows
+
+• Domain: Stan sees only unlabeled rows (stan_idx == missing_idx)
+
+• Partial: Stan sees all rows; labels are partially missing
+
+• Mix: like Partial, but a labeled “domain” subset is excluded from Stan
+
 # Optional LCVA training (local model summaries)
-run_BFL() aggregates local summaries, where each local model provides an N × C_m score matrix
-over the same target records.
+
+run_BFL() aggregates local summaries, where each local model provides an
+N × C_m score matrix over the same target records.
 
 The cleanest way to produce a local summary in this package is:
-	•	fit_lcva() then predict_lcva() (or the wrappers single_lcva(), multi_lcva())
+
+• fit_lcva() then predict_lcva() (or the wrappers single_lcva(),
+multi_lcva())
 
 This section runs only if {LCVA} is available.
 
@@ -148,12 +175,18 @@ has_lcva
 
 ## One-shot LCVA
 
-single_lcva() fits an LCVA model on training data and immediately predicts on a target dataset.
+single_lcva() fits an LCVA model on training data and immediately
+predicts on a target dataset.
 
 It:
-	1.	Fits LCVA on (X_train, Y_train).
-	2.	Computes posterior cause scores for X_target.
-	3.	Returns per-record posterior means (posterior_phi), estimated target prevalence (pi_pred), top-1 predictions (Y_pred), and row-alignment metadata.
+
+1\. Fits LCVA on (X_train, Y_train).
+
+2\. Computes posterior cause scores for X_target.
+
+3\. Returns per-record posterior means (posterior_phi), estimated target
+prevalence (pi_pred), top-1 predictions (Y_pred), and row-alignment
+metadata.
 
 ```{r, eval = has_lcva}
 # One-shot LCVA: fit + predict
@@ -169,12 +202,18 @@ head(lcva_one$Y_pred)
 ```
 
 ## Multi LCVA
-multi_lcva() fits a single LCVA model on the training data and applies it to multiple target datasets.
+
+multi_lcva() fits a single LCVA model on the training data and applies
+it to multiple target datasets.
 
 It:
-	1.	Fits LCVA once on (X_train, Y_train).
-	2.	Predicts on each matrix in a named list of targets.
-	3.	Returns a list of prediction summaries, each containing posterior_phi, pi_pred, Y_pred, and row-alignment metadata.
+
+1\. Fits LCVA once on (X_train, Y_train).
+
+2\. Predicts on each matrix in a named list of targets.
+
+3\. Returns a list of prediction summaries, each containing
+posterior_phi, pi_pred, Y_pred, and row-alignment metadata.
 
 ```{r, eval = has_lcva}
 # Multi LCVA: fit once, predict many targets (toy)
@@ -196,13 +235,19 @@ str(lcva_many$targets$targetA, max.level = 1)
 # Run global BFL aggregation with run_BFL()
 
 run_BFL() expects:
-	•	local_summaries: named list of local summary objects, each with:
-posterior_phi, cause_ids, and target_info$row_hash
-	•	X_target: used to define canonical row identity via hashing
-	•	Y_target: optional vector with NA for unknown labels (partial label setting)
-	•	model: “Base” / “Domain” / “Partial” / “Mix” (stored in output)
 
-Below we run Base/Domain/Partial/Mix using the observed labels from make_label_mask().
+• local_summaries: named list of local summary objects, each with:
+posterior_phi, cause_ids, and target_info\$row_hash
+
+• X_target: used to define canonical row identity via hashing
+
+• Y_target: optional vector with NA for unknown labels (partial label
+setting)
+
+• model: “Base” / “Domain” / “Partial” / “Mix” (stored in output)
+
+Below we run Base/Domain/Partial/Mix using the observed labels from
+make_label_mask().
 
 ```{r}
 # Build a minimal local_summaries list from one LCVA summary.
@@ -226,11 +271,16 @@ names(fit_mix)
 # Diagnostics with eval_BFL()
 
 It reports:
-	•	the estimated source weights (lambda_table),
-	•	posterior summaries of the target cause fractions (pi_summary),
-	•	and correlations between local and aggregated cause scores (phi_correlation).
 
-Use this function to inspect how the global model combined local summaries and how strongly each source influenced the final fit.
+• the estimated source weights (lambda_table),
+
+• posterior summaries of the target cause fractions (pi_summary),
+
+• and correlations between local and aggregated cause scores
+(phi_correlation).
+
+Use this function to inspect how the global model combined local
+summaries and how strongly each source influenced the final fit.
 
 ```{r}
 diag_mix <- eval_BFL(fit_mix)
@@ -240,11 +290,14 @@ head(diag_mix$pi_summary)
 ```
 
 # Posterior predictive draws with predict_BFL()
+
 predict_BFL() returns posterior predictive draws per target record:
-	•	draws_int (S × N, integer class indices)
-	•	draws (S × N, class labels)
-	•	pi posterior draws (S × C)
-	•	plus bookkeeping (causes, model, row_hash)
+
+• draws_int (S × N, integer class indices)
+
+• draws (S × N, class labels) • pi posterior draws (S × C) • plus
+bookkeeping (causes, model, row_hash)
+
 ```{r}
 pred_base <- predict_BFL(fit_base, seed = 1)
 pred_dom  <- predict_BFL(fit_dom,  seed = 1)
@@ -276,15 +329,20 @@ out
 
 # Metrics: what they mean (and what’s being evaluated)
 
-Two core metrics:
-	•	Top-1 accuracy: uses majority vote across posterior draws and compares to truth.
-(In-package helper: get_ACC(pred, true_Yt).)
-	•	CSMF accuracy: compares prevalence vectors pi_hat vs pi_true.
+Two core metrics: • Top-1 accuracy: uses majority vote across posterior
+draws and compares to truth. (In-package helper: get_ACC(pred,
+true_Yt).)
 
-Because we’re using mask-based evaluation, the default interpretation is:
-	•	evaluate Top-1 on the intended subset (often unlabeled rows)
-	•	compute CSMF in a way consistent with the regime (Domain/Mix need stan_idx to reconstruct)
-	
+• CSMF accuracy: compares prevalence vectors pi_hat vs pi_true.
+
+Because we’re using mask-based evaluation, the default interpretation
+is:
+
+• evaluate Top-1 on the intended subset (often unlabeled rows)
+
+• compute CSMF in a way consistent with the regime (Domain/Mix need
+stan_idx to reconstruct)
+
 ```{r}
 # Example: top-1 from helper (uses posterior mode across draws)
 acc_mix <- get_ACC(pred_mix, Y_true)
@@ -297,9 +355,12 @@ CSMF_acc(pi_hat, as.numeric(pi_true))
 ```
 
 # Summary
-	•	Start from a fully labeled toy dataset.
-	•	Use make_label_mask() to create Base/Domain/Partial/Mix observed-label structures.
-	•	Fit local models (optional LCVA section) to produce local_summaries.
-	•	Run global aggregation with run_BFL().
-	•	Sample predictions with predict_BFL().
-	•	Score consistently with score_BFL(), and interpret Top-1 + CSMF metrics.
+
+```         
+•   Start from a fully labeled toy dataset.
+•   Use make_label_mask() to create Base/Domain/Partial/Mix observed-label structures.
+•   Fit local models (optional LCVA section) to produce local_summaries.
+•   Run global aggregation with run_BFL().
+•   Sample predictions with predict_BFL().
+•   Score consistently with score_BFL(), and interpret Top-1 + CSMF metrics.
+```
