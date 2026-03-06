@@ -19,43 +19,40 @@
 #' }
 #'
 #' @keywords internal
-bfl_post_pred_sampler <- function(
-    posterior_phi,
-    posterior_lambda,
-    posterior_pi,
-    seed = NULL
-) {
+bfl_post_pred_sampler <- function(posterior_phi, posterior_lambda, posterior_pi, seed = NULL) {
   if (!is.null(seed)) set.seed(seed)
 
-  # Dimensions
   S <- dim(posterior_lambda)[1]
   I <- dim(posterior_phi)[1]
   C <- dim(posterior_phi)[2]
+  M <- dim(posterior_phi)[3]
 
-  # Compute unnormalized posterior predictive probs for each draw s:
-  # p_s(i,c) ∝ pi_s(c) * sum_m lambda_s(c,m) * phi(i,c,m)
+  stopifnot(
+    length(dim(posterior_phi)) == 3,
+    length(dim(posterior_lambda)) == 3,
+    nrow(posterior_pi) == S,
+    ncol(posterior_pi) == C,
+    dim(posterior_lambda)[2] == C,
+    dim(posterior_lambda)[3] == M
+  )
+
   posterior_pred_Y_prob <- sapply(seq_len(S), function(s) {
-    apply(posterior_phi, c(1, 2), function(phi_icm) {
-      sum(phi_icm * posterior_lambda[s, , ])
-    }) * posterior_pi[s, ]
+    # score: I x C
+    score <- Reduce(`+`, lapply(seq_len(M), function(m) {
+      sweep(posterior_phi[, , m], 2, posterior_lambda[s, , m], `*`)
+    }))
+    score <- sweep(score, 2, posterior_pi[s, ], `*`)
+    score <- score / rowSums(score)
+    score
   }, simplify = "array")  # I x C x S
 
-  # Normalize across classes for each (i, s)
-  posterior_pred_Y_prob <- apply(
-    posterior_pred_Y_prob,
-    c(1, 3),
-    function(x) x / sum(x)
-  ) # still I x C x S
-
-  # Sample Y for each (i, s)
-  posterior_pred_Y <- apply(
-    posterior_pred_Y_prob,
-    c(2, 3),
-    function(x) sample.int(C, 1, prob = x)
-  ) # I x S
+  # sample class for each (i,s) -> I x S, then transpose to S x I
+  posterior_pred_Y <- apply(posterior_pred_Y_prob, c(1,3), function(p) {
+    sample.int(C, 1, prob = p)
+  })
 
   list(
-    posterior_pred_Y_prob = posterior_pred_Y_prob,
-    posterior_pred_Y      = t(posterior_pred_Y) # S x I
+    posterior_pred_Y_prob = posterior_pred_Y_prob,   # I x C x S
+    posterior_pred_Y      = t(posterior_pred_Y)      # S x I
   )
 }

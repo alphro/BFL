@@ -270,3 +270,45 @@ multi_lcva <- function(X_train, Y_train, targets, lcva_args = list()) {
     targets   = results
   )
 }
+
+#' Fit LCVA and predict on one or more target datasets
+#'
+#' Unified wrapper around \code{fit_lcva()} and \code{predict_lcva()}.
+#' Accepts either a single matrix or a named list of matrices as targets.
+#'
+#' @param X_train Training symptom matrix.
+#' @param Y_train Training causes.
+#' @param targets Either a single numeric matrix (N x P) or a named list of matrices.
+#' @param lcva_args Optional LCVA hyperparameters (K, Nitr, thin, seed, pred_Nitr).
+#'
+#' @return If \code{targets} is a matrix: same output as \code{predict_lcva()}.
+#'   If \code{targets} is a named list: a list with:
+#'   \describe{
+#'     \item{cause_ids}{Cause labels from the training model.}
+#'     \item{targets}{Named list of \code{predict_lcva()} results per site.}
+#'   }
+#'
+#' @export
+run_lcva <- function(X_train, Y_train, targets, lcva_args = list()) {
+  model     <- fit_lcva(X_train, Y_train, lcva_args)
+  pred_Nitr <- if (!is.null(lcva_args$pred_Nitr)) lcva_args$pred_Nitr else 4000
+
+  # Single matrix
+  if (is.matrix(targets) || is.data.frame(targets)) {
+    return(predict_lcva(model, targets, pred_Nitr = pred_Nitr))
+  }
+
+  # Named list of matrices
+  if (is.list(targets)) {
+    if (is.null(names(targets))) stop("targets list must be named.")
+    results <- lapply(targets, function(X_target) {
+      predict_lcva(model, X_target, pred_Nitr = pred_Nitr)
+    })
+    return(list(
+      cause_ids = model$cause_ids,
+      targets   = results
+    ))
+  }
+
+  stop("targets must be a matrix or a named list of matrices.")
+}
