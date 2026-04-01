@@ -9,48 +9,79 @@ run_BFL(
   X_target,
   Y_target = NULL,
   label_shift = FALSE,
-  model = c("Base", "Domain", "Partial", "Mix"),
   stan_args = list(iter = 2000, chains = 4, seed = 12345)
 )
 }
 \arguments{
-\item{local_summaries}{Named list of local summary objects. Each element must contain:
+\item{local_summaries}{Named list of local model summary objects. Each
+element must contain:
 \itemize{
-\item \code{posterior_phi}: numeric matrix (\eqn{N \times C_m}) of per-record class
-scores/probabilities for the target set (rows align to \code{X_target}).
-\item \code{cause_ids}: character vector (length \eqn{C_m}) giving column labels.
-\item \code{target_info$row_hash}: character vector (length \eqn{N}) for row alignment.
+\item \code{posterior_phi}: numeric matrix (N x C).
+\item \code{cause_ids}: character vector of length C.
+\item \code{target_info$row_hash}: character vector of length N
+(produced by \code{compute_row_hashes()}).
 }}
 
-\item{X_target}{Target feature matrix/data.frame. Used only to define canonical
-row identity via hashing.}
+\item{X_target}{Full target feature matrix/data.frame (all N rows). Used
+to compute reference row hashes and infer CSMF correction metadata.}
 
-\item{Y_target}{Optional target labels (use NA for unknown). If NULL, runs the
-no-partial-label model.}
+\item{Y_target}{Optional character/factor vector of length N giving target
+labels. Use \code{NA} for unlabeled records. If \code{NULL}, the
+no-partial-label Stan model is used.}
 
-\item{label_shift}{Logical; if TRUE and \code{Y_target} provided, uses the
-unbalanced/label-shift variant.}
+\item{label_shift}{Logical; if \code{TRUE} and \code{Y_target} is provided,
+uses the unbalanced/label-shift Stan variant. Default \code{FALSE}.}
 
-\item{model}{One of \code{"Base"}, \code{"Domain"}, \code{"Partial"}, \code{"Mix"}.
-Currently used for bookkeeping (stored in the output).}
-
-\item{stan_args}{List of arguments passed to Stan sampling.}
+\item{stan_args}{List of Stan sampling arguments
+(iter, chains, seed). Default \code{list(iter = 2000, chains = 4, seed = 12345)}.}
 }
 \value{
-A list with components:
+An object of class \code{"BFL"} — a list with:
 \describe{
 \item{pi}{Posterior draws of class prevalence (S x C).}
 \item{lambda}{Posterior draws of per-class model weights (S x C x M).}
-\item{phi}{Per-model scores aligned to target rows and global classes (N x C x M).}
+\item{phi}{Per-model scores aligned to global classes (N x C x M).}
 \item{causes}{Character vector of global class labels (length C).}
-\item{model_names}{Character vector of model names (length M).}
-\item{row_hash}{Row hashes for \code{X_target} (length N).}
-\item{model}{User-specified BFL variant (bookkeeping).}
+\item{model_names}{Character vector of model/site names (length M).}
+\item{row_hash}{Reference row hashes for X_target (length N).}
+\item{stan_idx}{Integer indices of rows that entered Stan.}
+\item{n_total}{Total number of target records (N).}
+\item{nLc}{Named integer vector of labeled-row counts outside Stan
+(used for CSMF correction; NULL if Stan saw all rows).}
+\item{has_labels}{Logical: whether partial labels were passed to Stan.}
+\item{label_shift}{Logical: whether the label-shift variant was used.}
 }
 }
 \description{
 Aggregates per-model per-record class scores into a global Bayesian ensemble
-using Stan. Each local model contributes an \eqn{N \times C_m} matrix over the
-same target records; BFL learns posterior class prevalence (\code{pi}) and
-per-class model weights (\code{lambda}).
+using Stan. Automatically infers the correct Stan model and CSMF correction
+from the structure of \code{local_summaries} and \code{Y_target} — no model
+type parameter required.
+}
+\section{How BFL variants map to inputs}{
+
+\describe{
+\item{Base}{Build \code{local_summaries} predicting on all N rows of
+\code{X_target}. Pass \code{X_target} (full N rows) to
+\code{run_BFL()}. Leave \code{Y_target = NULL}.}
+\item{Domain}{Build \code{local_summaries} predicting on
+\code{X_unlabeled} only (the rows whose causes are unknown).
+Also add a self-site trained on the labeled rows, predicting on
+\code{X_unlabeled}. Pass \code{X_target = X_full} (all N rows) and
+\code{Y_target} with the known labels (NA for unlabeled rows). Stan
+uses the no-partial model because all labeled rows fall outside
+\code{stan_idx}; the labels are used only for the automatic CSMF
+correction \eqn{(n_{stan} \cdot \hat\pi + n_{Lc}) / N}.}
+\item{Partial}{Build \code{local_summaries} predicting on all N rows.
+Pass \code{X_target} (full N rows) and \code{Y_target} with \code{NA}
+for unlabeled records. Stan uses the partial-label model.}
+\item{Mix}{Same as Partial, but also include an extra self-site in
+\code{local_summaries} trained on the labeled target rows, predicting
+on all N rows. Stan uses the partial-label model.}
+}
+}
+
+\seealso{
+\code{\link{compute_row_hashes}}, \code{\link{run_lcva}},
+\code{\link{score_BFL}}
 }

@@ -119,7 +119,7 @@ build_bfl_stan_data_balanced <- function(aligned, Y_known, Y_idx) {
   stopifnot(length(Y_idx)   == stan_data$N)
 
   stan_data$Y_known <- as.integer(Y_known)
-  stan_data$Y       <- as.integer(Y_idx)
+  stan_data$Y_idx   <- as.integer(Y_idx)
 
   stan_data
 }
@@ -159,7 +159,7 @@ build_bfl_stan_data_unbalanced <- function(aligned, Y_known, Y_idx) {
   stopifnot(length(Y_idx)   == stan_data$N)
 
   stan_data$Y_known <- as.integer(Y_known)
-  stan_data$Y       <- as.integer(Y_idx)
+  stan_data$Y_idx   <- as.integer(Y_idx)
 
   stan_data
 }

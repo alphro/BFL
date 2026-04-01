@@ -25,8 +25,8 @@ weights.}
 \value{
 A list with components:
 \describe{
-\item{posterior_pred_Y_prob}{Array (I x C x S) of posterior predictive class
-probabilities.}
+\item{posterior_pred_Y_prob_mean}{Matrix (I x C) of posterior predictive
+class probabilities averaged over all S draws.}
 \item{posterior_pred_Y}{Matrix (S x I) of sampled class indices from the
 posterior predictive distribution.}
 }
@@ -34,5 +34,11 @@ posterior predictive distribution.}
 \description{
 Computes posterior predictive class probabilities and sampled class draws
 for each observation given posterior draws of \code{lambda} and \code{pi}.
+}
+\details{
+Memory-efficient implementation: draws are processed one at a time.
+Only the running mean (I x C) and integer samples (S x I) are retained,
+never the full I x C x S probability array.  This keeps peak memory at
+O(I * C + S * I) rather than O(I * C * S).
 }
 \keyword{internal}

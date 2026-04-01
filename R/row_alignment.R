@@ -17,6 +17,20 @@ NULL
 # ------------------------------------------------------------
 # Compute permutation from source hash to reference hash
 # ------------------------------------------------------------
+#' Compute row permutation from source to reference hash order
+#'
+#' Returns an integer permutation vector \code{perm} such that
+#' \code{h_src[perm] == h_ref}. Consumes each source position at most once,
+#' so duplicate hashes are handled correctly.
+#'
+#' @param h_src Character vector of row hashes for the source matrix.
+#' @param h_ref Character vector of row hashes giving the desired order.
+#'   Must be a permutation of \code{h_src} (same multiset).
+#'
+#' @return Integer vector of length \code{length(h_ref)} such that
+#'   \code{h_src[perm] == h_ref}.
+#'
+#' @keywords internal
 row_perm_from_hash <- function(h_src, h_ref) {
 
   stopifnot(length(h_src) == length(h_ref))
@@ -45,6 +59,24 @@ row_perm_from_hash <- function(h_src, h_ref) {
 # ------------------------------------------------------------
 # Align all local summaries to reference row order
 # ------------------------------------------------------------
+#' Align all local summaries to a reference row order
+#'
+#' Re-orders the \code{posterior_phi} rows of every local summary so they
+#' match the canonical target row order given by \code{ref_row_hash}. Also
+#' updates \code{target_info$row_hash} and \code{target_info$N} in each
+#' element.
+#'
+#' @param local_summaries Named list of local model summary objects. Each
+#'   element must contain \code{posterior_phi} (N x C matrix) and
+#'   \code{target_info$row_hash} (character vector of length N).
+#' @param ref_row_hash Character vector giving the canonical row hash order
+#'   (produced by \code{compute_row_hashes()}). Must be a permutation of
+#'   each site's \code{target_info$row_hash}.
+#'
+#' @return The same list structure as \code{local_summaries} with rows of
+#'   \code{posterior_phi} permuted to match \code{ref_row_hash}.
+#'
+#' @keywords internal
 align_rows_local_summaries <- function(local_summaries, ref_row_hash) {
 
   stopifnot(is.character(ref_row_hash))

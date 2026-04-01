@@ -11,33 +11,20 @@ predict_lcva(lcva_model, X_target, pred_Nitr = 4000)
 
 \item{X_target}{Numeric matrix/data.frame (N x P).}
 
-\item{pred_Nitr}{Number of MCMC iterations for prediction (default \code{4000}).}
+\item{pred_Nitr}{MCMC iterations for prediction (default \code{4000}).}
 }
 \value{
-A list with:
-\describe{
-\item{posterior_phi}{Numeric matrix (N x C) of per-record posterior mean cause
-probabilities/scores for the target set (rows align to \code{X_target}).}
-\item{cause_ids}{Character vector of cause labels (length C).}
-\item{pi_pred}{Numeric vector (length C) of estimated target cause fractions.}
-\item{Y_pred}{Factor (length N) of top-1 predicted causes.}
-\item{target_info}{List with \code{N}, \code{P}, and \code{row_hash}.}
-}
+A list with \code{posterior_phi}, \code{cause_ids},
+\code{pi_pred}, \code{Y_pred}, and \code{target_info}.
+\code{target_info} contains \code{row_hash} (per-row hashes),
+\code{N}, \code{P}, and \code{dataset_hash} (audit fingerprint).
 }
 \description{
-Runs \code{LCVA::LCVA.pred()} on \code{X_target} using a fitted model and returns
-target-level posterior summaries and top-1 predicted causes.
+Predict LCVA on a target dataset
 }
 \examples{
 \dontrun{
-set.seed(1)
-X_train <- matrix(rbinom(40 * 8, 1, 0.3), 40, 8)
-Y_train <- sample(c("A","B","C"), 40, replace = TRUE)
-X_test  <- matrix(rbinom(20 * 8, 1, 0.3), 20, 8)
-
-model <- fit_lcva(X_train, Y_train, lcva_args = list(Nitr = 200))
 preds <- predict_lcva(model, X_test, pred_Nitr = 400)
-dim(preds$posterior_phi)  # N x C
 }
 
 }

@@ -2,28 +2,97 @@
 % Please edit documentation in R/LCVA_helpers.R
 \name{run_lcva}
 \alias{run_lcva}
-\title{Fit LCVA and predict on one or more target datasets}
+\title{Fit LCVA and predict on a target dataset}
 \usage{
-run_lcva(X_train, Y_train, targets, lcva_args = list())
+run_lcva(X_train, Y_train, X_target, lcva_args = list())
 }
 \arguments{
-\item{X_train}{Training symptom matrix.}
+\item{X_train}{Training symptom matrix (N_train \eqn{\times} P) \emph{or}
+a named list of training matrices (one per site).}
 
-\item{Y_train}{Training causes.}
+\item{Y_train}{Training cause vector (length N_train) \emph{or} a named
+list of cause vectors matching \code{X_train}.}
 
-\item{targets}{Either a single numeric matrix (N x P) or a named list of matrices.}
+\item{X_target}{Target symptom matrix (N \eqn{\times} P). Always pass all
+N rows; \code{run_BFL()} infers the correct subset via row hashing.}
 
-\item{lcva_args}{Optional LCVA hyperparameters (K, Nitr, thin, seed, pred_Nitr).}
+\item{lcva_args}{Optional named list of LCVA hyperparameters passed to
+\code{fit_lcva()} and \code{predict_lcva()} (K, Nitr, thin, seed,
+pred_Nitr).}
 }
 \value{
-If \code{targets} is a matrix: same output as \code{predict_lcva()}.
-If \code{targets} is a named list: a list with:
-\describe{
-\item{cause_ids}{Cause labels from the training model.}
-\item{targets}{Named list of \code{predict_lcva()} results per site.}
+\itemize{
+\item \strong{Single site}: the \code{predict_lcva()} output directly
+(\code{posterior_phi}, \code{cause_ids}, \code{pi_pred}, \code{Y_pred},
+\code{target_info}).
+\item \strong{Multi-site}: a named list of \code{predict_lcva()} outputs,
+one per site.
 }
 }
 \description{
-Unified wrapper around \code{fit_lcva()} and \code{predict_lcva()}.
-Accepts either a single matrix or a named list of matrices as targets.
+Unified entry point for one or many training sites predicting on a single
+shared target matrix. Handles both the single-site and multi-site cases
+with the same call.
+}
+\section{Single-site usage}{
+
+Pass \code{X_train} as a matrix and \code{Y_train} as a vector. Returns
+the \code{predict_lcva()} output directly (not wrapped in a list).
+}
+
+\section{Multi-site usage}{
+
+Pass \code{X_train} as a \emph{named} list of training matrices and
+\code{Y_train} as a named list of cause vectors (same names, same order).
+Returns a named list of \code{predict_lcva()} outputs, one per site —
+ready to pass directly to \code{run_BFL()} as \code{local_summaries}.
+}
+
+\section{Building local_summaries for each BFL variant}{
+
+\describe{
+\item{Base}{Pass all N rows of \code{X_target}. Call
+\code{run_BFL(local_summaries, X_target)}.}
+\item{Domain}{Pass \strong{only the unlabeled rows}
+(\code{X_target[unlabeled_idx, ]}) as \code{X_target} here. Also
+add a self-site trained on the labeled rows, also predicting on
+\code{X_unlabeled}. Then call
+\code{run_BFL(local_summaries, X_full, Y_target = Y_partial)}
+where \code{X_full} is all N rows and \code{Y_partial} has the
+known labels (NA for unlabeled). Stan uses the no-partial model
+because labeled rows are outside \code{stan_idx}; the labels feed
+the automatic CSMF correction only.}
+\item{Partial}{Pass all N rows of \code{X_target}. Call
+\code{run_BFL(local_summaries, X_target, Y_target = Y_partial)}.}
+\item{Mix}{Pass all N rows for source sites; also add a self-site
+trained on labeled rows predicting on all N rows. Call
+\code{run_BFL(local_summaries, X_target, Y_target = Y_partial)}.}
+}
+}
+
+\examples{
+\dontrun{
+# --- Single site ---
+s1 <- run_lcva(X1, Y1, X_target)
+
+# --- Multiple sites in one call ---
+local_summaries <- run_lcva(
+  X_train  = list(site1 = X1, site2 = X2, site3 = X3),
+  Y_train  = list(site1 = Y1, site2 = Y2, site3 = Y3),
+  X_target = X_target
+)
+
+# --- Domain: add a site trained on labeled target data ---
+local_summaries_domain <- c(
+  local_summaries,
+  list(target_lbl = run_lcva(X_lbl, Y_lbl, X_target))
+)
+
+# --- Pass directly to run_BFL ---
+fit_base <- run_BFL(local_summaries, X_target)
+fit_dom  <- run_BFL(local_summaries_domain, X_target)
+fit_par  <- run_BFL(local_summaries, X_target, Y_target = Y_target)
+fit_mix  <- run_BFL(local_summaries_domain, X_target, Y_target = Y_target)
+}
+
 }

@@ -30,6 +30,17 @@ validate_local_summaries <- function(local_summaries) {
   stopifnot(is.list(local_summaries))
   stopifnot(length(local_summaries) >= 1)
 
+  # Every element must have a non-empty name so downstream code can
+  # identify models by site/name (e.g. phi array dimnames, print.BFL output).
+  nms <- names(local_summaries)
+  if (is.null(nms) || any(nms == "")) {
+    stop(
+      "local_summaries must be a fully named list ",
+      "(no empty or missing names).\n",
+      "Example: list(site_A = run_lcva(...), site_B = run_lcva(...))"
+    )
+  }
+
   for (x in local_summaries) {
     stopifnot(is.list(x))
     stopifnot(is.matrix(x$posterior_phi))

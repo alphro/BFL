@@ -2,61 +2,51 @@
 % Please edit documentation in R/score_BFL.R
 \name{score_BFL}
 \alias{score_BFL}
-\title{Score predictions from a fitted BFL model}
+\title{Score a fitted BFL model against ground-truth labels}
 \usage{
-score_BFL(
-  pred,
-  mask = NULL,
-  Y_eval = NULL,
-  pi_true = NULL,
-  missing_idx = NULL,
-  stan_idx = NULL
-)
+score_BFL(fit, Y_eval, pi_true = NULL, eval_idx = NULL, seed = NULL)
 }
 \arguments{
-\item{pred}{Output from \code{predict_BFL()}.}
+\item{fit}{Object of class \code{"BFL"} returned by \code{run_BFL()}.}
 
-\item{mask}{Optional mask object containing:
-\itemize{
-\item \code{Y_true}
-\item \code{missing_idx}
-\item \code{stan_idx}
-}}
+\item{Y_eval}{Character or factor vector of true labels (length
+\code{fit$n_total}).}
 
-\item{Y_eval}{Optional vector of true labels (length N).}
+\item{pi_true}{Optional named numeric vector of true class prevalences.
+If \code{NULL}, computed empirically from \code{Y_eval}.}
 
-\item{pi_true}{Optional numeric vector of true class prevalences.
-If NULL, computed empirically from \code{Y_eval}.}
+\item{eval_idx}{Optional integer indices defining the evaluation subset for
+top-1 and balanced accuracy (e.g. held-out unlabeled rows).
+If \code{NULL}, all \code{N} rows are used.}
 
-\item{missing_idx}{Optional integer indices defining evaluation subset
-(typically unlabeled rows).}
-
-\item{stan_idx}{Optional integer indices used by Stan (required for
-\code{"Domain"} and \code{"Mix"} models if not using \code{mask}).}
+\item{seed}{Optional integer seed for reproducible posterior sampling.}
 }
 \value{
 A list with components:
 \describe{
-\item{top1_acc}{Top-1 classification accuracy.}
-\item{csmf_acc}{Overall CSMF accuracy (global prevalence metric).}
-\item{conf_mat}{Confusion matrix (truth x predicted).}
-\item{pi_hat}{Posterior mean class prevalence.}
-\item{pi_true}{True class prevalence used for evaluation.}
-\item{csmf_error_by_cause}{Named numeric vector of per-cause
-prevalence differences (\code{pi_hat - pi_true}).}
+\item{top1_acc}{Top-1 accuracy on \code{eval_idx} rows.}
+\item{balanced_acc}{Balanced accuracy (mean per-class recall) on
+\code{eval_idx} rows.}
+\item{csmf_acc}{Overall CSMF accuracy (with automatic correction if
+Stan saw a subset of rows).}
+\item{conf_mat}{Confusion matrix (truth \eqn{\times} predicted).}
+\item{pi_hat}{Posterior mean class prevalences after CSMF correction.}
+\item{pi_true}{True class prevalences used for evaluation.}
+\item{csmf_error_by_cause}{Named numeric: \code{pi_hat - pi_true}
+per cause.}
 }
 }
 \description{
-Computes Top-1 accuracy, CSMF accuracy, a confusion matrix, and
-per-cause prevalence differences for a set of BFL predictions.
+Generates posterior predictive draws, then computes top-1 accuracy,
+balanced accuracy, CSMF accuracy, a confusion matrix, and per-cause
+prevalence errors.
 }
 \details{
-Evaluation can be performed either:
-\itemize{
-\item Using a \code{mask} object (recommended; produced by a masking helper), or
-\item By directly supplying \code{Y_eval} (and optionally \code{missing_idx}, \code{stan_idx}).
+CSMF correction is applied automatically when \code{fit$stan_idx}
+covers fewer rows than \code{fit$n_total} (Domain/Mix variants).
+The correction uses \code{fit$nLc} — labeled-row counts for rows
+outside Stan — which are stored by \code{run_BFL()} at fit time.
 }
-
-For \code{"Domain"} and \code{"Mix"} models, \code{stan_idx} is required
-to reconstruct full-sample CSMF estimates.
+\seealso{
+\code{\link{run_BFL}}, \code{\link{plot_score_BFL}}
 }

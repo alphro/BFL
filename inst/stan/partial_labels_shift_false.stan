@@ -17,7 +17,7 @@ parameters {
   simplex[num_causes] pi; // Prior probabilities for Y categories
   // simplex[num_causes] pi_U;
   vector[M] beta_raw[num_causes]; // Raw beta parameters for each cause and model
-  // vector[num_causes] alpha_raw; 
+  // vector[num_causes] alpha_raw;
   // vector[num_causes] epsilon;
 }
 
@@ -25,7 +25,7 @@ transformed parameters {
   simplex[M] lambda[num_causes]; // Softmax-transformed lambda parameters for each cause
   // simplex[num_causes] pi_O;
   // simplex[num_causes] pi_U;
-  
+
   for (c in 1:num_causes) {
     vector[M] beta_effective;
     for (m in 1:M) {
@@ -39,7 +39,7 @@ transformed parameters {
     }
     lambda[c] = softmax(beta_effective); // Apply softmax to ensure it's a simplex
   }
-  
+
    // pi_O = softmax(alpha_raw);
    //  pi_U = softmax(alpha_raw + epsilon);
 }
@@ -55,7 +55,7 @@ model {
     // alpha_raw[c] ~ normal(0, 1);
     // epsilon[c] ~ normal(0, 0.1);
   }
- 
+
   for (i in 1:N) {
     if (Y_known[i] == 1) {
       // Use the known Y_i directly
@@ -78,7 +78,7 @@ model {
     } else {
       // Y_i is unknown, proceed as before
       real total_prob_i = 0;
-      
+
       for (c in 1:num_causes) {
         // MIN FIX: map cause index -> actual cause code for phi indexing
         int c_code = causes[c];
@@ -86,14 +86,14 @@ model {
         // int c = causes[idx]; // Actual cause
         //real total_prob_i = 0;
         real inner_sum = 0;
-        
+
         for (m in 1:M) {
           if (model_presence[c, m] > 0) {
             inner_sum += phi[i, c_code, m] * lambda[c][m];
             // total_prob_i += pi[idx] * phi[i, c, m] * lambda[idx][m];
           }
         }
-        
+
          total_prob_i += pi[c] * inner_sum;
         // target += log(total_prob_i); // Log-likelihood addition
       }

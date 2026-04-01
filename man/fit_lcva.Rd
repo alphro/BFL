@@ -14,22 +14,14 @@ fit_lcva(X_train, Y_train, lcva_args = list())
 \item{lcva_args}{Optional LCVA hyperparameters (K, Nitr, thin, seed).}
 }
 \value{
-A list with:
-\describe{
-\item{fit}{LCVA fit object from \code{LCVA::LCVA.train()}.}
-\item{cause_ids}{Character vector of cause labels in internal order.}
-}
+A list with \code{fit} and \code{cause_ids}.
 }
 \description{
-Trains an LCVA model on labeled symptom data and returns
-a reusable model object.
+Fit LCVA model on a single training dataset
 }
 \examples{
 \dontrun{
-set.seed(1)
-X <- matrix(rbinom(40 * 8, 1, 0.3), 40, 8)
-Y <- sample(c("A","B","C"), 40, replace = TRUE)
-model <- fit_lcva(X, Y, lcva_args = list(Nitr = 200))
+model <- fit_lcva(X_train, Y_train, lcva_args = list(Nitr = 200))
 }
 
 }

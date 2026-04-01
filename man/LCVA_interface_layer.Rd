@@ -4,9 +4,7 @@
 \alias{LCVA_interface_layer}
 \title{LCVA Interface Layer}
 \description{
-This file provides a clean interface around the \pkg{LCVA}
-package for fitting and predicting on single or multiple
-datasets. These wrappers standardize cause handling,
-posterior summaries, and prediction outputs for downstream use.
+Clean interface around \pkg{LCVA} for fitting and predicting
+on single or multiple datasets.
 }
 \keyword{internal}

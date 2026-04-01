@@ -1,21 +1,20 @@
-#' Predict causes from a fitted global BFL model
+#' Posterior predictive draws from a fitted BFL model (internal)
 #'
-#' Returns posterior predictive draws for each target observation. Draws are
-#' returned both as integer class indices (1..C) and as cause labels.
+#' Called internally by \code{score_BFL()}. Users should use
+#' \code{score_BFL()} directly rather than calling this function.
 #'
-#' @param global_fit Output of \code{run_BFL()}.
+#' @param global_fit Object of class \code{"BFL"} returned by \code{run_BFL()}.
 #' @param seed Optional integer seed for reproducible sampling.
 #'
 #' @return A list with components:
 #' \describe{
 #'   \item{draws_int}{Matrix (S x N) of integer class draws in 1..C.}
-#'   \item{draws}{Matrix (S x N) of cause label draws (character).}
+#'   \item{draws}{Matrix (S x N) of cause-label draws (character).}
 #'   \item{causes}{Character vector of class labels (length C).}
 #'   \item{pi}{Posterior draws of class prevalence (S x C).}
-#'   \item{model}{User-specified BFL variant.}
-#'   \item{row_hash}{Character vector of row hashes (length N), if present.}
+#'   \item{row_hash}{Character vector of row hashes (length N).}
 #' }
-#' @export
+#' @noRd
 predict_BFL <- function(global_fit, seed = NULL) {
 
   stopifnot(
@@ -41,17 +40,11 @@ predict_BFL <- function(global_fit, seed = NULL) {
     ncol = ncol(draws_int)
   )
 
-  out <- list(
+  list(
     draws_int = draws_int,
     draws     = draws_lab,
     causes    = causes,
     pi        = global_fit$pi,
-    model     = global_fit$model
+    row_hash  = global_fit$row_hash
   )
-
-  if (!is.null(global_fit$row_hash)) {
-    out$row_hash <- global_fit$row_hash
-  }
-
-  out
 }

@@ -1,13 +1,21 @@
 #' LCVA Interface Layer
 #'
-#' This file provides a clean interface around the \pkg{LCVA}
-#' package for fitting and predicting on single or multiple
-#' datasets. These wrappers standardize cause handling,
-#' posterior summaries, and prediction outputs for downstream use.
+#' Clean interface around \pkg{LCVA} for fitting and predicting
+#' on single or multiple datasets.
 #'
 #' @name LCVA_interface_layer
 #' @keywords internal
 NULL
+
+
+# ============================================================
+# Internal helper
+# ============================================================
+
+.get_pred_nitr <- function(lcva_args) {
+  if (!is.null(lcva_args$pred_Nitr)) lcva_args$pred_Nitr else 4000
+}
+
 
 # ============================================================
 # 1) Fit LCVA
@@ -15,25 +23,15 @@ NULL
 
 #' Fit LCVA model on a single training dataset
 #'
-#' Trains an LCVA model on labeled symptom data and returns
-#' a reusable model object.
-#'
 #' @param X_train Numeric matrix/data.frame (N x P).
 #' @param Y_train Vector of training causes.
 #' @param lcva_args Optional LCVA hyperparameters (K, Nitr, thin, seed).
 #'
-#' @return A list with:
-#' \describe{
-#'   \item{fit}{LCVA fit object from \code{LCVA::LCVA.train()}.}
-#'   \item{cause_ids}{Character vector of cause labels in internal order.}
-#' }
+#' @return A list with \code{fit} and \code{cause_ids}.
 #'
 #' @examples
 #' \dontrun{
-#' set.seed(1)
-#' X <- matrix(rbinom(40 * 8, 1, 0.3), 40, 8)
-#' Y <- sample(c("A","B","C"), 40, replace = TRUE)
-#' model <- fit_lcva(X, Y, lcva_args = list(Nitr = 200))
+#' model <- fit_lcva(X_train, Y_train, lcva_args = list(Nitr = 200))
 #' }
 #'
 #' @export
@@ -46,27 +44,19 @@ fit_lcva <- function(X_train, Y_train, lcva_args = list()) {
   cause_ids <- levels(Y_fac)
   Y_int     <- as.integer(Y_fac)
 
-  K    <- if (!is.null(lcva_args$K))    lcva_args$K    else 5
-  Nitr <- if (!is.null(lcva_args$Nitr)) lcva_args$Nitr else 2000
-  thin <- if (!is.null(lcva_args$thin)) lcva_args$thin else 2
-  seed <- if (!is.null(lcva_args$seed)) lcva_args$seed else 12345
-
   fit <- LCVA::LCVA.train(
-    X = X_train,
-    Y = Y_int,
-    Domain = rep(1, length(Y_int)),
-    K = K,
-    model = "S",
-    Nitr = Nitr,
-    thin = thin,
-    seed = seed,
+    X       = X_train,
+    Y       = Y_int,
+    Domain  = rep(1, length(Y_int)),
+    K       = if (!is.null(lcva_args$K))    lcva_args$K    else 5,
+    model   = "S",
+    Nitr    = if (!is.null(lcva_args$Nitr)) lcva_args$Nitr else 2000,
+    thin    = if (!is.null(lcva_args$thin)) lcva_args$thin else 2,
+    seed    = if (!is.null(lcva_args$seed)) lcva_args$seed else 12345,
     verbose = FALSE
   )
 
-  list(
-    fit = fit,
-    cause_ids = cause_ids
-  )
+  list(fit = fit, cause_ids = cause_ids)
 }
 
 
@@ -76,239 +66,193 @@ fit_lcva <- function(X_train, Y_train, lcva_args = list()) {
 
 #' Predict LCVA on a target dataset
 #'
-#' Runs \code{LCVA::LCVA.pred()} on \code{X_target} using a fitted model and returns
-#' target-level posterior summaries and top-1 predicted causes.
-#'
 #' @param lcva_model Output from \code{fit_lcva()}.
 #' @param X_target Numeric matrix/data.frame (N x P).
-#' @param pred_Nitr Number of MCMC iterations for prediction (default \code{4000}).
+#' @param pred_Nitr MCMC iterations for prediction (default \code{4000}).
 #'
-#' @return A list with:
-#' \describe{
-#'   \item{posterior_phi}{Numeric matrix (N x C) of per-record posterior mean cause
-#'     probabilities/scores for the target set (rows align to \code{X_target}).}
-#'   \item{cause_ids}{Character vector of cause labels (length C).}
-#'   \item{pi_pred}{Numeric vector (length C) of estimated target cause fractions.}
-#'   \item{Y_pred}{Factor (length N) of top-1 predicted causes.}
-#'   \item{target_info}{List with \code{N}, \code{P}, and \code{row_hash}.}
-#' }
+#' @return A list with \code{posterior_phi}, \code{cause_ids},
+#'   \code{pi_pred}, \code{Y_pred}, and \code{target_info}.
+#'   \code{target_info} contains \code{row_hash} (per-row hashes),
+#'   \code{N}, \code{P}, and \code{dataset_hash} (audit fingerprint).
 #'
 #' @examples
 #' \dontrun{
-#' set.seed(1)
-#' X_train <- matrix(rbinom(40 * 8, 1, 0.3), 40, 8)
-#' Y_train <- sample(c("A","B","C"), 40, replace = TRUE)
-#' X_test  <- matrix(rbinom(20 * 8, 1, 0.3), 20, 8)
-#'
-#' model <- fit_lcva(X_train, Y_train, lcva_args = list(Nitr = 200))
 #' preds <- predict_lcva(model, X_test, pred_Nitr = 400)
-#' dim(preds$posterior_phi)  # N x C
 #' }
 #'
 #' @export
 predict_lcva <- function(lcva_model, X_target, pred_Nitr = 4000) {
 
-  stopifnot(!is.null(lcva_model$fit),
-            !is.null(lcva_model$cause_ids))
+  stopifnot(
+    !is.null(lcva_model$fit),
+    !is.null(lcva_model$cause_ids)
+  )
 
   X_target <- as.matrix(X_target)
   storage.mode(X_target) <- "numeric"
 
-  # Hash copy (avoid mutating original)
-  X_hash <- X_target
-  rownames(X_hash) <- NULL
-  row_hash <- hash_rows(X_hash)
-
   out <- LCVA::LCVA.pred(
-    fit = lcva_model$fit,
-    X_test = X_target,
-    model = "C",
-    Nitr = pred_Nitr,
+    fit               = lcva_model$fit,
+    X_test            = X_target,
+    model             = "C",
+    Nitr              = pred_Nitr,
     return_likelihood = TRUE,
-    verbose = FALSE
+    verbose           = FALSE
   )
 
-  posterior_phi <- apply(out$x_given_y_prob, c(2,3), mean)
+  posterior_phi <- apply(out$x_given_y_prob, c(2, 3), mean)
   posterior_phi[!is.finite(posterior_phi)] <- 0
-  posterior_phi[posterior_phi == 0] <- .Machine$double.xmin
+  posterior_phi[posterior_phi == 0]        <- .Machine$double.xmin
 
   pi_pred <- colMeans(out$pi_test)
 
-  Y_pred <- get_assignment(out$Y_test)
   Y_pred_factor <- factor(
-    Y_pred,
+    get_assignment(out$Y_test),
     levels = seq_along(lcva_model$cause_ids),
     labels = lcva_model$cause_ids
   )
 
   rm(out); gc()
 
+  # Per-row hashes for alignment in run_BFL()
+  row_hash <- compute_row_hashes(X_target)
+
+  # Single whole-matrix hash for audit purposes
+  X_audit <- X_target
+  rownames(X_audit) <- NULL
+  colnames(X_audit) <- NULL
+  dataset_hash <- rlang::hash(X_audit)
+
   list(
     posterior_phi = posterior_phi,
     cause_ids     = lcva_model$cause_ids,
     pi_pred       = pi_pred,
     Y_pred        = Y_pred_factor,
-    target_info = list(
-      N = nrow(X_target),
-      P = ncol(X_target),
-      row_hash = row_hash
+    target_info   = list(
+      N            = nrow(X_target),
+      P            = ncol(X_target),
+      row_hash     = row_hash,     # per-row: used for alignment + CSMF correction
+      dataset_hash = dataset_hash  # whole-matrix: audit trail only
     )
   )
 }
 
 
 # ============================================================
-# 3) Single LCVA (fit + predict)
+# 3) Run LCVA (unified entry point)
 # ============================================================
 
-#' Fit and predict LCVA on a single target dataset
+#' Fit LCVA and predict on a target dataset
 #'
-#' Convenience wrapper equivalent to calling
-#' \code{fit_lcva()} followed by \code{predict_lcva()}.
+#' Unified entry point for one or many training sites predicting on a single
+#' shared target matrix. Handles both the single-site and multi-site cases
+#' with the same call.
 #'
-#' @param X_train Training symptom matrix.
-#' @param Y_train Training causes.
-#' @param X_target Target symptom matrix.
-#' @param lcva_args Optional LCVA hyperparameters.
+#' @section Single-site usage:
+#' Pass \code{X_train} as a matrix and \code{Y_train} as a vector. Returns
+#' the \code{predict_lcva()} output directly (not wrapped in a list).
 #'
-#' @return Same output structure as \code{predict_lcva()}.
+#' @section Multi-site usage:
+#' Pass \code{X_train} as a \emph{named} list of training matrices and
+#' \code{Y_train} as a named list of cause vectors (same names, same order).
+#' Returns a named list of \code{predict_lcva()} outputs, one per site —
+#' ready to pass directly to \code{run_BFL()} as \code{local_summaries}.
 #'
-#' @examples
-#' \dontrun{
-#' set.seed(1)
-#' X_train <- matrix(rbinom(50 * 8, 1, 0.3), 50, 8)
-#' Y_train <- sample(c("A","B","C"), 50, replace = TRUE)
-#' X_target <- matrix(rbinom(20 * 8, 1, 0.35), 20, 8)
-#'
-#' result <- single_lcva(
-#'   X_train,
-#'   Y_train,
-#'   X_target,
-#'   lcva_args = list(Nitr = 200, pred_Nitr = 400)
-#' )
-#' str(result)
-#' }
-#'
-#' @export
-single_lcva <- function(X_train, Y_train, X_target, lcva_args = list()) {
-
-  model <- fit_lcva(X_train, Y_train, lcva_args)
-
-  pred_Nitr <- if (!is.null(lcva_args$pred_Nitr))
-    lcva_args$pred_Nitr else 4000
-
-  predict_lcva(model, X_target, pred_Nitr = pred_Nitr)
-}
-
-
-# ============================================================
-# 4) Multi LCVA (fit once, predict many)
-# ============================================================
-
-#' Fit LCVA once and predict on multiple target datasets
-#'
-#' Internally equivalent to:
-#' \preformatted{
-#'   model <- fit_lcva(X_train, Y_train, lcva_args)
-#'   lapply(targets, function(X) predict_lcva(model, X))
-#' }
-#'
-#' @param X_train Training symptom matrix.
-#' @param Y_train Training causes.
-#' @param targets Named list of target matrices.
-#' @param lcva_args Optional LCVA hyperparameters.
-#'
-#' @return A list with:
+#' @section Building local_summaries for each BFL variant:
 #' \describe{
-#'   \item{cause_ids}{Cause labels in training model.}
-#'   \item{targets}{Named list of prediction results per site.}
+#'   \item{Base}{Pass all N rows of \code{X_target}. Call
+#'     \code{run_BFL(local_summaries, X_target)}.}
+#'   \item{Domain}{Pass \strong{only the unlabeled rows}
+#'     (\code{X_target[unlabeled_idx, ]}) as \code{X_target} here. Also
+#'     add a self-site trained on the labeled rows, also predicting on
+#'     \code{X_unlabeled}. Then call
+#'     \code{run_BFL(local_summaries, X_full, Y_target = Y_partial)}
+#'     where \code{X_full} is all N rows and \code{Y_partial} has the
+#'     known labels (NA for unlabeled). Stan uses the no-partial model
+#'     because labeled rows are outside \code{stan_idx}; the labels feed
+#'     the automatic CSMF correction only.}
+#'   \item{Partial}{Pass all N rows of \code{X_target}. Call
+#'     \code{run_BFL(local_summaries, X_target, Y_target = Y_partial)}.}
+#'   \item{Mix}{Pass all N rows for source sites; also add a self-site
+#'     trained on labeled rows predicting on all N rows. Call
+#'     \code{run_BFL(local_summaries, X_target, Y_target = Y_partial)}.}
+#' }
+#'
+#' @param X_train Training symptom matrix (N_train \eqn{\times} P) \emph{or}
+#'   a named list of training matrices (one per site).
+#' @param Y_train Training cause vector (length N_train) \emph{or} a named
+#'   list of cause vectors matching \code{X_train}.
+#' @param X_target Target symptom matrix (N \eqn{\times} P). Always pass all
+#'   N rows; \code{run_BFL()} infers the correct subset via row hashing.
+#' @param lcva_args Optional named list of LCVA hyperparameters passed to
+#'   \code{fit_lcva()} and \code{predict_lcva()} (K, Nitr, thin, seed,
+#'   pred_Nitr).
+#'
+#' @return
+#' \itemize{
+#'   \item \strong{Single site}: the \code{predict_lcva()} output directly
+#'     (\code{posterior_phi}, \code{cause_ids}, \code{pi_pred}, \code{Y_pred},
+#'     \code{target_info}).
+#'   \item \strong{Multi-site}: a named list of \code{predict_lcva()} outputs,
+#'     one per site.
 #' }
 #'
 #' @examples
 #' \dontrun{
-#' set.seed(1)
+#' # --- Single site ---
+#' s1 <- run_lcva(X1, Y1, X_target)
 #'
-#' X_train <- matrix(rbinom(60 * 8, 1, 0.3), 60, 8)
-#' Y_train <- sample(c("A","B","C"), 60, replace = TRUE)
-#'
-#' targets <- list(
-#'   site1 = matrix(rbinom(20 * 8, 1, 0.30), 20, 8),
-#'   site2 = matrix(rbinom(25 * 8, 1, 0.35), 25, 8),
-#'   site3 = matrix(rbinom(30 * 8, 1, 0.25), 30, 8),
-#'   site4 = matrix(rbinom(18 * 8, 1, 0.40), 18, 8)
+#' # --- Multiple sites in one call ---
+#' local_summaries <- run_lcva(
+#'   X_train  = list(site1 = X1, site2 = X2, site3 = X3),
+#'   Y_train  = list(site1 = Y1, site2 = Y2, site3 = Y3),
+#'   X_target = X_target
 #' )
 #'
-#' results <- multi_lcva(
-#'   X_train,
-#'   Y_train,
-#'   targets,
-#'   lcva_args = list(Nitr = 200, pred_Nitr = 400)
+#' # --- Domain: add a site trained on labeled target data ---
+#' local_summaries_domain <- c(
+#'   local_summaries,
+#'   list(target_lbl = run_lcva(X_lbl, Y_lbl, X_target))
 #' )
 #'
-#' names(results$targets)
-#' str(results$targets$site1)
+#' # --- Pass directly to run_BFL ---
+#' fit_base <- run_BFL(local_summaries, X_target)
+#' fit_dom  <- run_BFL(local_summaries_domain, X_target)
+#' fit_par  <- run_BFL(local_summaries, X_target, Y_target = Y_target)
+#' fit_mix  <- run_BFL(local_summaries_domain, X_target, Y_target = Y_target)
 #' }
 #'
 #' @export
-multi_lcva <- function(X_train, Y_train, targets, lcva_args = list()) {
+run_lcva <- function(X_train, Y_train, X_target, lcva_args = list()) {
 
-  if (!is.list(targets) || is.null(names(targets)))
-    stop("targets must be a named list of matrices.")
+  multi_site <- is.list(X_train) && !is.data.frame(X_train)
 
-  model <- fit_lcva(X_train, Y_train, lcva_args)
+  if (multi_site) {
+    # ------------------------------------------------------------------
+    # Multi-site: X_train and Y_train are both named lists
+    # ------------------------------------------------------------------
+    if (!is.list(Y_train))
+      stop("When X_train is a list, Y_train must also be a named list.")
 
-  pred_Nitr <- if (!is.null(lcva_args$pred_Nitr))
-    lcva_args$pred_Nitr else 4000
+    nms <- names(X_train)
+    if (is.null(nms) || any(nms == ""))
+      stop("X_train list must be fully named (one name per training site).")
+    if (!identical(sort(names(Y_train)), sort(nms)))
+      stop("names(X_train) and names(Y_train) must match.")
 
-  results <- lapply(targets, function(X_target) {
-    predict_lcva(model, X_target, pred_Nitr)
-  })
-  names(results) <- names(targets)
+    pred_Nitr <- .get_pred_nitr(lcva_args)
 
-  list(
-    cause_ids = model$cause_ids,
-    targets   = results
-  )
-}
+    lapply(nms, function(nm) {
+      model <- fit_lcva(X_train[[nm]], Y_train[[nm]], lcva_args)
+      predict_lcva(lcva_model = model, X_target = X_target, pred_Nitr = pred_Nitr)
+    }) |> setNames(nms)
 
-#' Fit LCVA and predict on one or more target datasets
-#'
-#' Unified wrapper around \code{fit_lcva()} and \code{predict_lcva()}.
-#' Accepts either a single matrix or a named list of matrices as targets.
-#'
-#' @param X_train Training symptom matrix.
-#' @param Y_train Training causes.
-#' @param targets Either a single numeric matrix (N x P) or a named list of matrices.
-#' @param lcva_args Optional LCVA hyperparameters (K, Nitr, thin, seed, pred_Nitr).
-#'
-#' @return If \code{targets} is a matrix: same output as \code{predict_lcva()}.
-#'   If \code{targets} is a named list: a list with:
-#'   \describe{
-#'     \item{cause_ids}{Cause labels from the training model.}
-#'     \item{targets}{Named list of \code{predict_lcva()} results per site.}
-#'   }
-#'
-#' @export
-run_lcva <- function(X_train, Y_train, targets, lcva_args = list()) {
-  model     <- fit_lcva(X_train, Y_train, lcva_args)
-  pred_Nitr <- if (!is.null(lcva_args$pred_Nitr)) lcva_args$pred_Nitr else 4000
-
-  # Single matrix
-  if (is.matrix(targets) || is.data.frame(targets)) {
-    return(predict_lcva(model, targets, pred_Nitr = pred_Nitr))
+  } else {
+    # ------------------------------------------------------------------
+    # Single site: X_train is a matrix, Y_train is a vector
+    # ------------------------------------------------------------------
+    model     <- fit_lcva(X_train, Y_train, lcva_args)
+    pred_Nitr <- .get_pred_nitr(lcva_args)
+    predict_lcva(lcva_model = model, X_target = X_target, pred_Nitr = pred_Nitr)
   }
-
-  # Named list of matrices
-  if (is.list(targets)) {
-    if (is.null(names(targets))) stop("targets list must be named.")
-    results <- lapply(targets, function(X_target) {
-      predict_lcva(model, X_target, pred_Nitr = pred_Nitr)
-    })
-    return(list(
-      cause_ids = model$cause_ids,
-      targets   = results
-    ))
-  }
-
-  stop("targets must be a matrix or a named list of matrices.")
 }

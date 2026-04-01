@@ -26,15 +26,16 @@ run_bfl_stan <- function(
     unbalanced = "partial_labels_shift_true.stan"
   )
 
-  stan_path <- system.file("stan", stan_file, package = "BFL")
+  stan_path <- system.file("stan", stan_file, package = "BFL2")
   if (stan_path == "") stop("Stan file not found: ", stan_file)
 
   fit <- rstan::sampling(
     rstan::stan_model(stan_path),
-    data = stan_data,
-    iter = stan_args$iter,
-    chains = stan_args$chains,
-    seed = stan_args$seed,
+    data    = stan_data,
+    iter    = stan_args$iter,
+    chains  = stan_args$chains,
+    seed    = stan_args$seed,
+    init    = if (is.null(stan_args$init)) "random" else stan_args$init,
     refresh = 0
   )
 
