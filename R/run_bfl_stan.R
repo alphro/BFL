@@ -26,7 +26,7 @@ run_bfl_stan <- function(
     unbalanced = "partial_labels_shift_true.stan"
   )
 
-  stan_path <- system.file("stan", stan_file, package = "BFL2")
+  stan_path <- system.file("stan", stan_file, package = "BFL")
   if (stan_path == "") stop("Stan file not found: ", stan_file)
 
   fit <- rstan::sampling(
@@ -36,7 +36,7 @@ run_bfl_stan <- function(
     chains  = stan_args$chains,
     seed    = stan_args$seed,
     init    = if (is.null(stan_args$init)) "random" else stan_args$init,
-    refresh = 0
+    refresh = 100
   )
 
   post <- rstan::extract(fit)

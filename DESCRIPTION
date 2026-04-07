@@ -1,4 +1,4 @@
-Package: BFL2
+Package: BFL
 Title: Bayesian Federated Learning for Verbal Autopsy
 Version: 0.1.0
 Authors@R: c(

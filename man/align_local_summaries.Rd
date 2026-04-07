@@ -7,14 +7,30 @@
 align_local_summaries(local_summaries, ref_row_hash = NULL)
 }
 \arguments{
-\item{local_summaries}{list of local summary objects}
+\item{local_summaries}{Named list of local model summary objects. Each element
+must contain \code{posterior_phi} (N x C matrix), \code{cause_ids} (character
+vector of length C), and \code{target_info$row_hash} (character vector of
+length N).}
 
-\item{ref_row_hash}{optional reference hash for row alignment}
+\item{ref_row_hash}{Optional character vector of length N giving the canonical
+row hash order (produced by \code{compute_row_hashes()}). When supplied,
+each site's \code{posterior_phi} rows are permuted to match this order
+before cause alignment.}
 }
 \value{
-list(global_causes, aligned_phi, ref_row_hash)
+A list with three elements:
+\describe{
+\item{global_causes}{Sorted character vector of all cause labels across
+all sites.}
+\item{aligned_phi}{Named list of N x C_global matrices with columns
+ordered by \code{global_causes}; columns absent from a site are zero.}
+\item{ref_row_hash}{The \code{ref_row_hash} argument (passed through).}
+}
 }
 \description{
-Align local summaries to a global cause set (internal)
+Merges the per-site cause vocabularies into a single sorted global cause set
+and pads each site's \code{posterior_phi} matrix to that full width, filling
+unobserved causes with zero. Optionally re-orders rows to match a reference
+row hash before cause alignment.
 }
 \keyword{internal}
