@@ -1,24 +1,37 @@
-#' Run a BFL Stan model and extract posterior draws
+#' Run a BFL model and extract posterior draws
 #'
-#' Internal helper used by \code{run_BFL()}. Selects the appropriate Stan program
-#' for the requested variant, runs MCMC via \pkg{rstan}, and returns posterior draws.
+#' Internal helper used by \code{run_BFL()}. Dispatches to the Gibbs sampler
+#' or Stan depending on \code{sampler} and \code{variant}.
 #'
 #' @param stan_data Named list matching the Stan data block.
-#' @param stan_args List with Stan sampling args (iter, chains, seed, ...).
+#' @param mcmc_args List of shared MCMC controls: iter, chains, seed, and
+#'   optionally init (Stan only, default "random").
+#' @param gibbs_args List of Gibbs-specific options: logistic_normal, mh_scale.
+#'   Ignored when sampler = "stan".
 #' @param variant One of "no_partial", "balanced", "unbalanced".
+#' @param sampler One of "gibbs" or "stan". Gibbs is only available for
+#'   "no_partial"; partial-label variants always fall through to Stan.
 #'
-#' @return A list with posterior draws (pi, lambda, and optionally pi_O) and the Stan fit.
+#' @return A list with posterior draws (pi, lambda, and optionally pi_O) and
+#'   the Stan fit object (NULL for Gibbs).
 #'
 #' @keywords internal
 run_bfl_stan <- function(
     stan_data,
-    stan_args,
-    variant = c("no_partial", "balanced", "unbalanced")
+    mcmc_args  = list(),
+    gibbs_args = list(),
+    variant    = c("no_partial", "balanced", "unbalanced"),
+    sampler    = c("gibbs", "stan")
 ) {
-
   variant <- match.arg(variant)
+  sampler <- match.arg(sampler)
 
-  # Select Stan file by variant
+  # Gibbs sampler path: only available for no_partial
+  if (sampler == "gibbs" && variant == "no_partial") {
+    return(run_bfl_gibbs(stan_data, mcmc_args, gibbs_args))
+  }
+
+  # Stan path
   stan_file <- switch(
     variant,
     no_partial = "no_partial_labels.stan",
@@ -32,24 +45,16 @@ run_bfl_stan <- function(
   fit <- rstan::sampling(
     rstan::stan_model(stan_path),
     data    = stan_data,
-    iter    = stan_args$iter,
-    chains  = stan_args$chains,
-    seed    = stan_args$seed,
-    init    = if (is.null(stan_args$init)) "random" else stan_args$init,
+    iter    = mcmc_args$iter,
+    chains  = mcmc_args$chains,
+    seed    = mcmc_args$seed,
+    init    = if (is.null(mcmc_args$init)) "random" else mcmc_args$init,
     refresh = 100
   )
 
   post <- rstan::extract(fit)
 
-  out <- list(
-    pi = post$pi,
-    lambda = post$lambda,
-    stan_fit = fit
-  )
-
-  if (variant == "unbalanced") {
-    out$pi_O <- post$pi_O
-  }
-
+  out <- list(pi = post$pi, lambda = post$lambda, stan_fit = fit)
+  if (variant == "unbalanced") out$pi_O <- post$pi_O
   out
 }

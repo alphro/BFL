@@ -41,8 +41,20 @@
 #'   no-partial-label Stan model is used.
 #' @param label_shift Logical; if \code{TRUE} and \code{Y_target} is provided,
 #'   uses the unbalanced/label-shift Stan variant. Default \code{FALSE}.
-#' @param stan_args List of Stan sampling arguments
-#'   (iter, chains, seed). Default \code{list(iter = 2000, chains = 4, seed = 12345)}.
+#' @param sampler One of \code{"gibbs"} (default) or \code{"stan"}.
+#'   \code{"gibbs"} uses the conjugate Rcpp Gibbs sampler, which is much faster
+#'   and applies when no partial labels enter the sampler (\code{no_partial}
+#'   variant).  \code{"stan"} forces the original Stan/NUTS path.  For
+#'   partial-label variants (\code{balanced}, \code{unbalanced}) Stan is always
+#'   used regardless of this argument.
+#' @param mcmc_args List of MCMC controls shared by both samplers: \code{iter}
+#'   (default 2000), \code{chains} (default 4), \code{seed} (default 12345),
+#'   and \code{init} (Stan only, default \code{"random"}).
+#' @param gibbs_args List of Gibbs-specific tuning options, ignored when
+#'   \code{sampler = "stan"}: \code{logistic_normal} (logical, default
+#'   \code{FALSE} — use conjugate Dirichlet prior; set \code{TRUE} to match
+#'   Stan's logistic-normal prior via an MH step) and \code{mh_scale}
+#'   (random-walk step size, default \code{0.5}).
 #'
 #' @return An object of class \code{"BFL"} — a list with:
 #' \describe{
@@ -69,8 +81,11 @@ run_BFL <- function(
     X_target,
     Y_target    = NULL,
     label_shift = FALSE,
-    stan_args   = list(iter = 2000, chains = 4, seed = 12345)
+    sampler     = c("gibbs", "stan"),
+    mcmc_args   = list(iter = 2000, chains = 4, seed = 12345),
+    gibbs_args  = list()
 ) {
+  sampler <- match.arg(sampler)
 
   # ------------------------------------------------------------------
   # 1. Validate local_summaries
@@ -165,9 +180,10 @@ run_BFL <- function(
   stan_data <- .build_stan_data(aligned, Y_target, stan_idx, variant)
 
   # ------------------------------------------------------------------
-  # 8. Run Stan
+  # 8. Run sampler
   # ------------------------------------------------------------------
-  fit <- run_bfl_stan(stan_data, stan_args, variant = variant)
+  fit <- run_bfl_stan(stan_data, mcmc_args, gibbs_args,
+                      variant = variant, sampler = sampler)
 
   # ------------------------------------------------------------------
   # 9. Build phi array (N x C x M)
