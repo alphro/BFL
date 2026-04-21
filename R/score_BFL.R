@@ -4,19 +4,28 @@
 #' balanced accuracy, CSMF accuracy, a confusion matrix, and per-cause
 #' prevalence errors.
 #'
-#' CSMF correction is applied automatically when \code{fit$stan_idx}
-#' covers fewer rows than \code{fit$n_total} (Domain/Mix variants).
-#' The correction uses \code{fit$nLc} — labeled-row counts for rows
-#' outside Stan — which are stored by \code{run_BFL()} at fit time.
+#' CSMF computation depends on \code{fit$label_shift}:
+#' \itemize{
+#'   \item \strong{No shift} (\code{label_shift = FALSE}): \code{pi_true} is the
+#'     full-dataset prevalence from \code{Y_eval}. A correction is applied when
+#'     Stan only saw a subset of rows (Domain/Mix variants), using \code{fit$nLc}
+#'     — labeled-row counts outside Stan — stored by \code{run_BFL()}.
+#'     Formula: \code{(n_stan * pi_hat_raw + nLc) / n_total}.
+#'   \item \strong{Label shift} (\code{label_shift = TRUE}): \code{pi_true} is
+#'     the prevalence of the \emph{unlabeled evaluation subset} (\code{eval_idx}).
+#'     No correction is applied; \code{eval_idx} must be provided.
+#' }
 #'
 #' @param fit Object of class \code{"BFL"} returned by \code{run_BFL()}.
 #' @param Y_eval Character or factor vector of true labels (length
 #'   \code{fit$n_total}).
 #' @param pi_true Optional named numeric vector of true class prevalences.
-#'   If \code{NULL}, computed empirically from \code{Y_eval}.
+#'   If \code{NULL}, computed empirically: from \code{Y_eval[eval_idx]} when
+#'   \code{fit$label_shift = TRUE}, or from all of \code{Y_eval} otherwise.
 #' @param eval_idx Optional integer indices defining the evaluation subset for
 #'   top-1 and balanced accuracy (e.g. held-out unlabeled rows).
-#'   If \code{NULL}, all \code{N} rows are used.
+#'   If \code{NULL}, all \code{N} rows are used. \emph{Required} when
+#'   \code{fit$label_shift = TRUE}.
 #' @param seed Optional integer seed for reproducible posterior sampling.
 #'
 #' @return A list with components:
@@ -58,36 +67,53 @@ score_BFL <- function(fit,
   pred <- predict_BFL(fit, seed = seed)
 
   # ------------------------------------------------------------------
-  # 2. True prevalence
+  # 2. True prevalence + CSMF target
+  #
+  # No shift / balanced:
+  #   target = full dataset prevalence
+  #   correction applied when Stan only saw a subset of rows
+  #
+  # Label shift / unbalanced:
+  #   target = unlabeled evaluation subset prevalence
+  #   no correction (target of inference is pi on eval_idx)
   # ------------------------------------------------------------------
-  if (is.null(pi_true)) {
-    tab     <- table(factor(Y_eval, levels = causes))
-    pi_true <- as.numeric(tab / sum(tab))
-  }
-  pi_true_named <- setNames(as.numeric(pi_true), causes)
-
-  # ------------------------------------------------------------------
-  # 3. CSMF correction
-  #    Correction is needed when Stan only saw a subset of N rows
-  #    (Domain/Mix). fit$nLc holds labeled-row counts outside Stan.
-  #    Formula: (n_stan * colMeans(pi) + nLc) / n_total
-  # ------------------------------------------------------------------
-  pi_hat_raw        <- colMeans(pred$pi)   # posterior mean from Stan
+  pi_hat_raw        <- colMeans(pred$pi)
   names(pi_hat_raw) <- causes
+  n_stan <- length(fit$stan_idx)
 
-  n_stan           <- length(fit$stan_idx)
-  needs_correction <- n_stan < N
-
-  if (needs_correction) {
-    nLc_vec           <- numeric(length(causes))
-    names(nLc_vec)    <- causes
-    if (!is.null(fit$nLc)) {
-      shared              <- intersect(names(fit$nLc), causes)
-      nLc_vec[shared]     <- as.numeric(fit$nLc[shared])
+  if (isTRUE(fit$label_shift)) {
+    if (is.null(eval_idx)) {
+      stop("For label_shift=TRUE, eval_idx must be provided so CSMF is ",
+           "computed on the unlabeled target subset.")
     }
-    pi_hat <- (n_stan * pi_hat_raw + nLc_vec) / N
-  } else {
+    # true prevalence on evaluation subset only
+    if (is.null(pi_true)) {
+      tab     <- table(factor(Y_eval[eval_idx], levels = causes))
+      pi_true <- as.numeric(tab / sum(tab))
+    }
+    pi_true_named <- setNames(as.numeric(pi_true), causes)
+    # no correction under label shift: target is unlabeled subset
     pi_hat <- pi_hat_raw
+  } else {
+    # full-target truth prevalence
+    if (is.null(pi_true)) {
+      tab     <- table(factor(Y_eval, levels = causes))
+      pi_true <- as.numeric(tab / sum(tab))
+    }
+    pi_true_named <- setNames(as.numeric(pi_true), causes)
+    # correction only for no-shift / balanced settings
+    needs_correction <- n_stan < N
+    if (needs_correction) {
+      nLc_vec        <- numeric(length(causes))
+      names(nLc_vec) <- causes
+      if (!is.null(fit$nLc)) {
+        shared          <- intersect(names(fit$nLc), causes)
+        nLc_vec[shared] <- as.numeric(fit$nLc[shared])
+      }
+      pi_hat <- (n_stan * pi_hat_raw + nLc_vec) / N
+    } else {
+      pi_hat <- pi_hat_raw
+    }
   }
 
   csmf_acc <- CSMF_acc(pi_hat, pi_true_named)
