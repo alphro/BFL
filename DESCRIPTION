@@ -2,7 +2,9 @@ Package: BFL
 Title: Bayesian Federated Learning for Verbal Autopsy
 Version: 0.1.0
 Authors@R: c(
-    person("Jason", "Last", email = "you@ucsc.edu", role = c("aut", "cre"))
+    person("Jason", "Teng", email = "jteng9@ucsc.edu", role = c("aut", "cre"))
+    person("Yu", "Zhu", email = "yzhu201@ucsc.edu", role = c("aut"))
+    person("Zehang Richard", "Li", email = "lizehang@ucsc.edu", role = c("aut"))
     )
 Description: Implements Bayesian federated learning methods for verbal autopsy,
     including LCVA wrappers, partial-label handling, and evaluation utilities.
@@ -15,9 +17,12 @@ Imports:
     dplyr,
     ggplot2,
     rlang,
+    Rcpp (>= 1.0.0),
     rstan,
     scales,
     tibble
+LinkingTo:
+    Rcpp
 Suggests:
     knitr,
     rmarkdown,
