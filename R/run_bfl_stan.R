@@ -26,9 +26,9 @@ run_bfl_stan <- function(
   variant <- match.arg(variant)
   sampler <- match.arg(sampler)
 
-  # Gibbs sampler path: only available for no_partial
-  if (sampler == "gibbs" && variant == "no_partial") {
-    return(run_bfl_gibbs(stan_data, mcmc_args, gibbs_args))
+  # Gibbs sampler path: all three variants supported
+  if (sampler == "gibbs") {
+    return(run_bfl_gibbs(stan_data, mcmc_args, gibbs_args, variant = variant))
   }
 
   # Stan path
