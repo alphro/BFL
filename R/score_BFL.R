@@ -113,10 +113,8 @@ score_BFL <- function(fit,
   draws_eval <- pred$draws_int[, col_idx, drop = FALSE]  # S x |eval_idx|
   ytrue_eval <- Y_eval[eval_idx]
 
-  # Integer index of the modal class for each column
-  yhat_idx <- apply(draws_eval, 2, function(x) {
-    which.max(tabulate(x, nbins = length(causes)))
-  })
+  # Modal class index per observation (1-indexed, across S draws)
+  yhat_idx  <- modal_class_cpp(draws_eval, length(causes))
   yhat_top1 <- causes[yhat_idx]
 
   # ------------------------------------------------------------------
