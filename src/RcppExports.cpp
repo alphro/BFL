@@ -10,30 +10,9 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// gibbs_no_partial_cpp
-List gibbs_no_partial_cpp(const NumericVector& phi, const IntegerMatrix& model_presence, const IntegerVector& causes_r, int N, int C_max, int M, int num_causes, int n_iter, int n_warmup, bool logistic_normal, double mh_scale);
-RcppExport SEXP _BFL_gibbs_no_partial_cpp(SEXP phiSEXP, SEXP model_presenceSEXP, SEXP causes_rSEXP, SEXP NSEXP, SEXP C_maxSEXP, SEXP MSEXP, SEXP num_causesSEXP, SEXP n_iterSEXP, SEXP n_warmupSEXP, SEXP logistic_normalSEXP, SEXP mh_scaleSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const NumericVector& >::type phi(phiSEXP);
-    Rcpp::traits::input_parameter< const IntegerMatrix& >::type model_presence(model_presenceSEXP);
-    Rcpp::traits::input_parameter< const IntegerVector& >::type causes_r(causes_rSEXP);
-    Rcpp::traits::input_parameter< int >::type N(NSEXP);
-    Rcpp::traits::input_parameter< int >::type C_max(C_maxSEXP);
-    Rcpp::traits::input_parameter< int >::type M(MSEXP);
-    Rcpp::traits::input_parameter< int >::type num_causes(num_causesSEXP);
-    Rcpp::traits::input_parameter< int >::type n_iter(n_iterSEXP);
-    Rcpp::traits::input_parameter< int >::type n_warmup(n_warmupSEXP);
-    Rcpp::traits::input_parameter< bool >::type logistic_normal(logistic_normalSEXP);
-    Rcpp::traits::input_parameter< double >::type mh_scale(mh_scaleSEXP);
-    rcpp_result_gen = Rcpp::wrap(gibbs_no_partial_cpp(phi, model_presence, causes_r, N, C_max, M, num_causes, n_iter, n_warmup, logistic_normal, mh_scale));
-    return rcpp_result_gen;
-END_RCPP
-}
-// gibbs_partial_cpp
-List gibbs_partial_cpp(const NumericVector& phi, const IntegerMatrix& model_presence, const IntegerVector& causes_r, const IntegerVector& Y_known, const IntegerVector& Y_idx_r, int N, int C_max, int M, int num_causes, int n_iter, int n_warmup, bool single_pi, bool logistic_normal, double mh_scale);
-RcppExport SEXP _BFL_gibbs_partial_cpp(SEXP phiSEXP, SEXP model_presenceSEXP, SEXP causes_rSEXP, SEXP Y_knownSEXP, SEXP Y_idx_rSEXP, SEXP NSEXP, SEXP C_maxSEXP, SEXP MSEXP, SEXP num_causesSEXP, SEXP n_iterSEXP, SEXP n_warmupSEXP, SEXP single_piSEXP, SEXP logistic_normalSEXP, SEXP mh_scaleSEXP) {
+// gibbs_bfl_cpp
+List gibbs_bfl_cpp(const NumericVector& phi, const IntegerMatrix& model_presence, const IntegerVector& causes_r, const IntegerVector& Y_known, const IntegerVector& Y_idx_r, int N, int C_max, int M, int num_causes, int n_iter, int n_warmup, bool single_pi, bool logistic_normal, double mh_scale);
+RcppExport SEXP _BFL_gibbs_bfl_cpp(SEXP phiSEXP, SEXP model_presenceSEXP, SEXP causes_rSEXP, SEXP Y_knownSEXP, SEXP Y_idx_rSEXP, SEXP NSEXP, SEXP C_maxSEXP, SEXP MSEXP, SEXP num_causesSEXP, SEXP n_iterSEXP, SEXP n_warmupSEXP, SEXP single_piSEXP, SEXP logistic_normalSEXP, SEXP mh_scaleSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -51,7 +30,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type single_pi(single_piSEXP);
     Rcpp::traits::input_parameter< bool >::type logistic_normal(logistic_normalSEXP);
     Rcpp::traits::input_parameter< double >::type mh_scale(mh_scaleSEXP);
-    rcpp_result_gen = Rcpp::wrap(gibbs_partial_cpp(phi, model_presence, causes_r, Y_known, Y_idx_r, N, C_max, M, num_causes, n_iter, n_warmup, single_pi, logistic_normal, mh_scale));
+    rcpp_result_gen = Rcpp::wrap(gibbs_bfl_cpp(phi, model_presence, causes_r, Y_known, Y_idx_r, N, C_max, M, num_causes, n_iter, n_warmup, single_pi, logistic_normal, mh_scale));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -86,8 +65,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_BFL_gibbs_no_partial_cpp", (DL_FUNC) &_BFL_gibbs_no_partial_cpp, 11},
-    {"_BFL_gibbs_partial_cpp", (DL_FUNC) &_BFL_gibbs_partial_cpp, 14},
+    {"_BFL_gibbs_bfl_cpp", (DL_FUNC) &_BFL_gibbs_bfl_cpp, 14},
     {"_BFL_post_pred_sample_cpp", (DL_FUNC) &_BFL_post_pred_sample_cpp, 7},
     {"_BFL_modal_class_cpp", (DL_FUNC) &_BFL_modal_class_cpp, 2},
     {NULL, NULL, 0}
