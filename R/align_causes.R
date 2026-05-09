@@ -9,11 +9,13 @@
 #' unobserved causes with zero. Optionally re-orders rows to match a reference
 #' row hash before cause alignment.
 #'
-#' Cause order is determined by first-appearance across \code{local_summaries}:
-#' the first model's \code{cause_ids} come first, then any new causes from
-#' subsequent models in the order they are first seen. This preserves the
-#' caller-supplied cause ordering and avoids misalignment when phi matrices
-#' or truth labels are already in a meaningful (non-alphabetical) order.
+#' Cause order is determined by sorting the union of all sites' cause IDs.
+#' When all IDs coerce to numeric without \code{NA}, numeric order is used
+#' (e.g., PHMRC integer causes 1..34); otherwise lexicographic order is used.
+#' Sorting is required for correct prediction decoding: the Gibbs sampler and
+#' posterior-predictive sampler communicate via 1-indexed \emph{positions} into
+#' \code{global_causes}, so position \eqn{k} must map to the same cause label
+#' regardless of site-combination order.
 #'
 #' @param local_summaries Named list of local model summary objects. Each element
 #'   must contain \code{posterior_phi} (N x C matrix), \code{cause_ids} (character
@@ -27,7 +29,8 @@
 #' @return A list with three elements:
 #'   \describe{
 #'     \item{global_causes}{Character vector of all cause labels across all
-#'       sites, in first-appearance order across \code{local_summaries}.}
+#'       sites, in sorted order (numeric if all IDs are numeric-like,
+#'       lexicographic otherwise).}
 #'     \item{aligned_phi}{Named list of N x C_global matrices with columns
 #'       ordered by \code{global_causes}; columns absent from a site are zero.}
 #'     \item{ref_row_hash}{The \code{ref_row_hash} argument (passed through).}
@@ -45,13 +48,27 @@ align_local_summaries <- function(local_summaries, ref_row_hash = NULL) {
     x
   })
 
-  # First-appearance order: start with the first model's cause_ids, then
-  # append any new causes from later models as they are first encountered.
-  # Do NOT sort — the caller's ordering may carry semantic meaning (e.g.,
-  # PHMRC integer cause indices, or LCVA first-appearance ordering).
-  global_causes <- unique(unlist(
+  # Collect all unique cause IDs across sites, then sort into a stable order.
+  #
+  # Sorting is REQUIRED for correct prediction decoding. The Gibbs sampler
+  # and posterior-predictive sampler communicate via 1-indexed POSITIONS into
+  # this vector (draws_int), so position k must consistently map to the k-th
+  # cause across all runs regardless of site-combination order.
+  #
+  # Sort rule:
+  #   - If every cause ID coerces to a finite numeric without NA, sort
+  #     numerically (handles non-contiguous integer IDs, e.g. PHMRC 1..34).
+  #   - Otherwise sort lexicographically (handles string cause IDs, e.g.
+  #     CHAMPS text labels). Document clearly if mixed/non-standard IDs arise.
+  global_causes_raw <- unique(unlist(
     lapply(local_summaries, function(x) x$cause_ids)
   ))
+  gc_num <- suppressWarnings(as.numeric(global_causes_raw))
+  if (all(!is.na(gc_num))) {
+    global_causes <- as.character(sort(gc_num))
+  } else {
+    global_causes <- sort(global_causes_raw)
+  }
 
   aligned_phi <- lapply(local_summaries, function(x) {
     N  <- nrow(x$posterior_phi)

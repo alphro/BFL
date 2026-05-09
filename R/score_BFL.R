@@ -4,6 +4,20 @@
 #' balanced accuracy, CSMF accuracy, a confusion matrix, and per-cause
 #' prevalence errors.
 #'
+#' \strong{Balanced accuracy} is defined as the macro-average recall over
+#' causes that actually appear in \code{ytrue_eval} (the evaluation truth
+#' labels).  Causes absent from the evaluation set are excluded from the
+#' average, matching the convention used by
+#' \code{caret::confusionMatrix(...)$overall["Balanced Accuracy"]} and
+#' \code{caret::confusionMatrix(...)$byClass[,"Recall"]}.
+#'
+#' Concretely: a 2-D confusion matrix is built with \strong{Prediction} as
+#' rows and \strong{Reference} (truth) as columns, restricted to
+#' \code{sort(unique(ytrue_eval))}.  Per-class recall is
+#' \code{diag / colSums}; classes with zero reference count receive
+#' \code{NA} and are excluded via \code{na.rm = TRUE}.  The full
+#' all-cause confusion matrix is retained separately for diagnostics.
+#'
 #' CSMF computation depends on \code{fit$label_shift}:
 #' \itemize{
 #'   \item \strong{No shift} (\code{label_shift = FALSE}): \code{pi_true} is the
@@ -31,11 +45,17 @@
 #' @return A list with components:
 #' \describe{
 #'   \item{top1_acc}{Top-1 accuracy on \code{eval_idx} rows.}
-#'   \item{balanced_acc}{Balanced accuracy (mean per-class recall) on
-#'     \code{eval_idx} rows.}
+#'   \item{balanced_acc}{Balanced accuracy — macro-average recall over causes
+#'     observed in the evaluation truth labels.  Matches
+#'     \code{caret::confusionMatrix(...)$byClass[,"Recall"]} averaged over
+#'     observed classes.}
 #'   \item{csmf_acc}{Overall CSMF accuracy (with automatic correction if
 #'     Stan saw a subset of rows).}
-#'   \item{conf_mat}{Confusion matrix (truth \eqn{\times} predicted).}
+#'   \item{conf_mat}{Full diagnostic confusion matrix (truth \eqn{\times}
+#'     predicted) over all \code{fit$causes}; rows = truth, cols = predicted.}
+#'   \item{conf_mat_bal}{Observed-cause confusion matrix used to compute
+#'     \code{balanced_acc}; rows = Prediction, cols = Reference (caret
+#'     orientation), restricted to \code{sort(unique(ytrue_eval))}.}
 #'   \item{pi_hat}{Posterior mean class prevalences after CSMF correction.}
 #'   \item{pi_true}{True class prevalences used for evaluation.}
 #'   \item{csmf_error_by_cause}{Named numeric: \code{pi_hat - pi_true}
@@ -149,7 +169,10 @@ score_BFL <- function(fit,
   top1_acc <- mean(yhat_top1 == ytrue_eval, na.rm = TRUE)
 
   # ------------------------------------------------------------------
-  # 6. Confusion matrix
+  # 6. Full diagnostic confusion matrix (all fit$causes)
+  #
+  # Rows = truth, columns = predicted, levels = all fit$causes.
+  # Retained for diagnostics / plotting; NOT used for balanced accuracy.
   # ------------------------------------------------------------------
   conf_mat <- table(
     truth = factor(ytrue_eval, levels = causes),
@@ -157,9 +180,33 @@ score_BFL <- function(fit,
   )
 
   # ------------------------------------------------------------------
-  # 7. Balanced accuracy (mean per-class recall)
+  # 7. Balanced accuracy — macro-average recall over OBSERVED causes
+  #
+  # Convention: matches caret::confusionMatrix(...)$byClass[,"Recall"].
+  #
+  # Implementation details:
+  #   - Restrict both factor levels to lvls_eval = sort(unique(ytrue_eval))
+  #     so only causes that actually appear in the evaluation truth set
+  #     contribute to the average.
+  #   - Orientation follows caret: Prediction = rows, Reference = cols.
+  #     colSums(conf_mat_bal) gives the per-class reference (truth) totals
+  #     used as the recall denominator.
+  #   - Predictions for causes NOT in lvls_eval become NA in the factor and
+  #     are excluded from the confusion matrix, matching caret behaviour.
+  #   - Classes with zero reference count receive NA and are excluded via
+  #     na.rm = TRUE (should not arise here since lvls_eval = unique(ytrue_eval),
+  #     but guarded defensively).
   # ------------------------------------------------------------------
-  per_class_recall <- diag(conf_mat) / pmax(rowSums(conf_mat), 1L)
+  lvls_eval <- sort(unique(ytrue_eval))
+
+  conf_mat_bal <- table(
+    Prediction = factor(yhat_top1,  levels = lvls_eval),
+    Reference  = factor(ytrue_eval, levels = lvls_eval)
+  )
+
+  ref_totals       <- colSums(conf_mat_bal)           # truth counts per observed cause
+  per_class_recall <- diag(conf_mat_bal) / ref_totals # TP / (TP + FN) per cause
+  per_class_recall[ref_totals == 0] <- NA             # defensive guard (should not fire)
   balanced_acc     <- mean(per_class_recall, na.rm = TRUE)
 
   # ------------------------------------------------------------------
@@ -172,7 +219,8 @@ score_BFL <- function(fit,
       top1_acc            = top1_acc,
       balanced_acc        = balanced_acc,
       csmf_acc            = csmf_acc,
-      conf_mat            = conf_mat,
+      conf_mat            = conf_mat,      # full C×C diagnostic matrix (truth × pred)
+      conf_mat_bal        = conf_mat_bal,  # observed-cause matrix used for balanced_acc (Pred × Ref)
       pi_hat              = pi_hat,
       pi_true             = pi_true_named,
       csmf_error_by_cause = csmf_error_by_cause
@@ -180,3 +228,34 @@ score_BFL <- function(fit,
     class = "BFL_score"
   )
 }
+
+
+# ------------------------------------------------------------------------------
+# Internal validation snippet — verify balanced_acc matches caret
+#
+# Run this block interactively after calling score_BFL() to confirm agreement.
+# Requires: caret, a scored BFL object `sc`, and the matching ytrue_eval /
+# yhat_top1 vectors used during scoring.
+#
+# sc        <- score_BFL(fit, Y_eval, eval_idx = missing_idx, seed = 42)
+# ytrue_ev  <- as.character(Y_eval[eval_idx])
+# yhat_top1 <- as.character(fit$causes[
+#                modal_class_cpp(predict_BFL(fit)$draws_int[, match(eval_idx, fit$stan_idx)],
+#                                length(fit$causes))])
+#
+# lvls <- sort(unique(ytrue_ev))
+# cm_caret <- caret::confusionMatrix(
+#   data      = factor(yhat_top1, levels = lvls),
+#   reference = factor(ytrue_ev,  levels = lvls)
+# )
+#
+# # Per-class recall from caret
+# caret_recall <- cm_caret$byClass[, "Recall"]
+# caret_bal    <- mean(caret_recall, na.rm = TRUE)
+#
+# # Should be identical (or differ by < .Machine$double.eps^0.5)
+# cat("BFL package balanced_acc:", sc$balanced_acc, "\n")
+# cat("caret balanced accuracy: ", caret_bal,       "\n")
+# cat("Difference:              ", abs(sc$balanced_acc - caret_bal), "\n")
+# stopifnot(abs(sc$balanced_acc - caret_bal) < 1e-10)
+# ------------------------------------------------------------------------------

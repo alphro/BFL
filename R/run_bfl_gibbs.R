@@ -68,6 +68,59 @@ run_bfl_gibbs <- function(stan_data,
     single_pi <- (variant == "balanced")
   }
 
+  # ---- Pre-Gibbs dimension + sanity checks -----------------------------------
+  # These stop() before the C++ call so the user sees a clear error message
+  # rather than a segfault.
+  expected_phi_len <- N * stan_data$C_max * M
+  if (length(phi_vec) != expected_phi_len)
+    stop(sprintf(
+      "run_bfl_gibbs: phi_vec length %d does not match N=%d * C_max=%d * M=%d = %d.\n  Check that stan_data$phi has dim c(N, C_max, M).",
+      length(phi_vec), N, stan_data$C_max, M, expected_phi_len))
+
+  if (!identical(dim(stan_data$model_presence), c(K, M)))
+    stop(sprintf(
+      "run_bfl_gibbs: model_presence has dim [%s], expected [%d x %d] (num_causes x M).",
+      paste(dim(stan_data$model_presence), collapse = " x "), K, M))
+
+  if (length(stan_data$causes) != K)
+    stop(sprintf(
+      "run_bfl_gibbs: length(causes) = %d but num_causes = %d.",
+      length(stan_data$causes), K))
+
+  if (max(stan_data$causes) > stan_data$C_max)
+    stop(sprintf(
+      "run_bfl_gibbs: max(causes) = %d > C_max = %d.  Cause indices exceed the phi array column range.",
+      max(stan_data$causes), stan_data$C_max))
+
+  n_bad_phi <- sum(is.na(phi_vec) | is.infinite(phi_vec))
+  if (n_bad_phi > 0)
+    stop(sprintf("run_bfl_gibbs: phi contains %d NA/Inf value(s).", n_bad_phi))
+
+  if (any(phi_vec < 0, na.rm = TRUE))
+    stop(sprintf("run_bfl_gibbs: phi contains %d negative value(s).",
+                 sum(phi_vec < 0, na.rm = TRUE)))
+
+  # Warn about causes with no active model (model_presence row all-zero).
+  # These arise from phi_yz likelihood underflow across all virtual sources.
+  # gibbs_bfl_cpp is patched to avoid a segfault in this case, but sampling
+  # quality for those causes will be degenerate.
+  dead_k <- which(rowSums(stan_data$model_presence) == 0L)
+  if (length(dead_k) > 0)
+    warning(sprintf(
+      "run_bfl_gibbs: %d cause(s) have no active model (all model_presence columns = 0): indices [%s].\n  phi_yz likelihood underflowed to 0 for these causes across all %d virtual sources.\n  Posterior for these causes will be driven entirely by the pi prior.",
+      length(dead_k), paste(dead_k, collapse = ", "), M))
+
+  zero_cols_per_m <- vapply(
+    seq_len(M),
+    function(m) sum(colSums(array(phi_vec, dim = c(N, stan_data$C_max, M))[,,m]) == 0),
+    integer(1)
+  )
+  if (any(zero_cols_per_m > 0))
+    message(sprintf(
+      "run_bfl_gibbs: %d of %d virtual source(s) have >= 1 all-zero phi column (phi_yz underflow). Max zero-cols in one source: %d.",
+      sum(zero_cols_per_m > 0), M, max(zero_cols_per_m)))
+  # ---------------------------------------------------------------------------
+
   chain_results <- vector("list", n_chains)
 
   for (ch in seq_len(n_chains)) {

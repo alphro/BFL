@@ -226,7 +226,14 @@ List gibbs_bfl_cpp(
         int m     = active[k_i][j];
         prob_w[j] = phi_at(i, c_k, m) * lambda[k_i][m];
       }
-      W[i] = active[k_i][rcategorical_cpp(prob_w)];
+      if (nact == 0) {
+        // active[k_i] is empty: phi_yz underflowed to 0 for this cause
+        // in every virtual source.  Use sentinel W=0 — the lambda update
+        // checks m_to_j[k][W[i]] >= 0 and skips the count gracefully.
+        W[i] = 0;
+      } else {
+        W[i] = active[k_i][rcategorical_cpp(prob_w)];
+      }
     }
 
     // Step 3: Sample pi (and pi_O for unbalanced).
