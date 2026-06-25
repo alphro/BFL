@@ -100,25 +100,57 @@ run_bfl_gibbs <- function(stan_data,
     stop(sprintf("run_bfl_gibbs: phi contains %d negative value(s).",
                  sum(phi_vec < 0, na.rm = TRUE)))
 
-  # Warn about causes with no active model (model_presence row all-zero).
-  # These arise from phi_yz likelihood underflow across all virtual sources.
-  # gibbs_bfl_cpp is patched to avoid a segfault in this case, but sampling
-  # quality for those causes will be degenerate.
+  # ---- Distinguish structural absence from numerical underflow ----------------
+  #
+  # Structural absence: model_presence[k, m] = 0 means source m genuinely does
+  #   not have cause k (e.g. an absent cause expanded to zero by
+  #   expand_phi_to_causes). These columns ARE expected to be all-zero and must
+  #   NOT be reported as underflow.
+  #
+  # Numerical underflow: model_presence[k, m] = 1 but all phi[i, k, m] = 0.
+  #   This means the source claims to have the cause but every observation's
+  #   likelihood underflowed to zero.  This is the pathological case that
+  #   degrades inference and should be warned.
+  # ---------------------------------------------------------------------------
+
+  phi_arr <- array(phi_vec, dim = c(N, stan_data$C_max, M))
+
+  # Structural absence count (informational only — expected and handled correctly).
+  n_structural_absent <- sum(stan_data$model_presence == 0L)
+  if (n_structural_absent > 0)
+    message(sprintf(
+      "run_bfl_gibbs: %d structural absent (source,cause) pairs — model_presence=0, phi=0 by design. These are excluded from the likelihood (correct).",
+      n_structural_absent))
+
+  # Dead causes: ALL sources structurally absent for cause k.
+  # These will never be sampled; posterior is pi-prior only.
   dead_k <- which(rowSums(stan_data$model_presence) == 0L)
   if (length(dead_k) > 0)
     warning(sprintf(
-      "run_bfl_gibbs: %d cause(s) have no active model (all model_presence columns = 0): indices [%s].\n  phi_yz likelihood underflowed to 0 for these causes across all %d virtual sources.\n  Posterior for these causes will be driven entirely by the pi prior.",
+      "run_bfl_gibbs: %d cause(s) have no active source at all (model_presence all-zero row): cause indices [%s].\n  These causes cannot be sampled; their posterior is prior-only.\n  This is expected if all %d sources lack those causes entirely.",
       length(dead_k), paste(dead_k, collapse = ", "), M))
 
-  zero_cols_per_m <- vapply(
-    seq_len(M),
-    function(m) sum(colSums(array(phi_vec, dim = c(N, stan_data$C_max, M))[,,m]) == 0),
-    integer(1)
-  )
-  if (any(zero_cols_per_m > 0))
-    message(sprintf(
-      "run_bfl_gibbs: %d of %d virtual source(s) have >= 1 all-zero phi column (phi_yz underflow). Max zero-cols in one source: %d.",
-      sum(zero_cols_per_m > 0), M, max(zero_cols_per_m)))
+  # True underflow: model_presence=1 but all phi rows are zero for that (cause, source).
+  underflow_count <- 0L
+  underflow_pairs <- character(0)
+  for (m in seq_len(M)) {
+    for (k in seq_len(K)) {
+      if (stan_data$model_presence[k, m] == 1L) {
+        c_idx <- stan_data$causes[k]   # 1-indexed column in phi array
+        col_sum <- sum(phi_arr[, c_idx, m])
+        if (col_sum == 0) {
+          underflow_count <- underflow_count + 1L
+          underflow_pairs <- c(underflow_pairs,
+                               sprintf("(cause=%d,src=%d)", k, m))
+        }
+      }
+    }
+  }
+  if (underflow_count > 0)
+    warning(sprintf(
+      "run_bfl_gibbs: %d (cause,source) pair(s) have model_presence=1 but all-zero phi (true numerical underflow): %s.\n  Inference for those cause/source combinations will use only other active sources.",
+      underflow_count,
+      paste(head(underflow_pairs, 10), collapse = "; ")))
   # ---------------------------------------------------------------------------
 
   chain_results <- vector("list", n_chains)

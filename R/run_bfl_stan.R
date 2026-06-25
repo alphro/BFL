@@ -9,8 +9,12 @@
 #' @param gibbs_args List of Gibbs-specific options: logistic_normal, mh_scale.
 #'   Ignored when sampler = "stan".
 #' @param variant One of "no_partial", "balanced", "unbalanced".
-#' @param sampler One of "gibbs" or "stan". Gibbs is only available for
-#'   "no_partial"; partial-label variants always fall through to Stan.
+#' @param sampler One of "gibbs" or "stan". Both samplers support all three
+#'   variants: when sampler = "gibbs", every variant ("no_partial", "balanced",
+#'   "unbalanced") is dispatched to run_bfl_gibbs(); when sampler = "stan", the
+#'   variant selects the matching Stan model (no_partial_labels.stan,
+#'   partial_labels_shift_false.stan, partial_labels_shift_true.stan for the
+#'   label-shift / unbalanced case).
 #'
 #' @return A list with posterior draws (pi, lambda, and optionally pi_O) and
 #'   the Stan fit object (NULL for Gibbs).

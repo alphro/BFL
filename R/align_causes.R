@@ -26,13 +26,18 @@
 #'   each site's \code{posterior_phi} rows are permuted to match this order
 #'   before cause alignment.
 #'
-#' @return A list with three elements:
+#' @return A list with four elements:
 #'   \describe{
 #'     \item{global_causes}{Character vector of all cause labels across all
 #'       sites, in sorted order (numeric if all IDs are numeric-like,
 #'       lexicographic otherwise).}
 #'     \item{aligned_phi}{Named list of N x C_global matrices with columns
 #'       ordered by \code{global_causes}; columns absent from a site are zero.}
+#'     \item{model_presence}{Integer matrix (C_global x M) where entry [c, m]
+#'       is 1 if site m structurally includes cause c in its cause list, 0
+#'       otherwise. This reflects cause-list membership, NOT phi values — a
+#'       cause with all-zero phi due to underflow still gets model_presence=1
+#'       so the issue remains visible to downstream diagnostics.}
 #'     \item{ref_row_hash}{The \code{ref_row_hash} argument (passed through).}
 #'   }
 #' @keywords internal
@@ -88,9 +93,34 @@ align_local_summaries <- function(local_summaries, ref_row_hash = NULL) {
     phi_aligned
   })
 
+  # ------------------------------------------------------------------
+  # Structural model_presence: C_global x M
+  #
+  # Entry [c, m] = 1 iff site m's cause_ids includes global_causes[c].
+  # This reflects cause-list MEMBERSHIP, not phi values.  A source that
+  # structurally contains a cause but whose phi has underflowed to all
+  # zeros still gets model_presence=1 — the underflow is then visible as
+  # a true-underflow warning in run_bfl_gibbs(), rather than being
+  # silently reclassified as structural absence.
+  # ------------------------------------------------------------------
+  Cg <- length(global_causes)
+  M  <- length(local_summaries)
+  model_presence <- matrix(
+    0L,
+    nrow = Cg,
+    ncol = M,
+    dimnames = list(global_causes, names(local_summaries))
+  )
+  for (m in seq_len(M)) {
+    idx <- match(as.character(local_summaries[[m]]$cause_ids), global_causes)
+    if (anyNA(idx)) stop("Some local cause_ids are not in global_causes.")
+    model_presence[idx, m] <- 1L
+  }
+
   list(
-    global_causes = global_causes,
-    aligned_phi = aligned_phi,
-    ref_row_hash = ref_row_hash
+    global_causes  = global_causes,
+    aligned_phi    = aligned_phi,
+    model_presence = model_presence,
+    ref_row_hash   = ref_row_hash
   )
 }

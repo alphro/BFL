@@ -31,25 +31,11 @@ gibbs_bfl_cpp <- function(phi, model_presence, causes_r, Y_known, Y_idx_r, N, C_
     .Call(`_BFL_gibbs_bfl_cpp`, phi, model_presence, causes_r, Y_known, Y_idx_r, N, C_max, M, num_causes, n_iter, n_warmup, single_pi, logistic_normal, mh_scale)
 }
 
-#' Posterior predictive sampler (Rcpp)
-#'
-#' @param phi_vec    Flattened phi array [I, C, M] column-major.
-#' @param lambda_vec Flattened lambda array [S, C, M] column-major.
-#' @param pi_vec     Flattened pi matrix [S, C] column-major.
-#' @param I,C,M,S   Dimensions.
-#'
-#' @return List: posterior_pred_Y_prob_mean [I x C], posterior_pred_Y [S x I].
-#' @keywords internal
 post_pred_sample_cpp <- function(phi_vec, lambda_vec, pi_vec, I, C, M, S) {
     .Call(`_BFL_post_pred_sample_cpp`, phi_vec, lambda_vec, pi_vec, I, C, M, S)
 }
 
-#' Modal class vote across posterior draws (Rcpp)
-#'
-#' @param draws Integer matrix [S x I] with values in 1..C.
-#' @param C     Number of classes.
-#' @return Integer vector of length I: 1-indexed modal class per observation.
-#' @keywords internal
 modal_class_cpp <- function(draws, C) {
     .Call(`_BFL_modal_class_cpp`, draws, C)
 }
+

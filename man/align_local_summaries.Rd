@@ -20,17 +20,27 @@ before cause alignment.}
 \value{
 A list with three elements:
 \describe{
-\item{global_causes}{Sorted character vector of all cause labels across
-all sites.}
+\item{global_causes}{Character vector of all cause labels across all
+sites, in sorted order (numeric if all IDs are numeric-like,
+lexicographic otherwise).}
 \item{aligned_phi}{Named list of N x C_global matrices with columns
 ordered by \code{global_causes}; columns absent from a site are zero.}
 \item{ref_row_hash}{The \code{ref_row_hash} argument (passed through).}
 }
 }
 \description{
-Merges the per-site cause vocabularies into a single sorted global cause set
-and pads each site's \code{posterior_phi} matrix to that full width, filling
+Merges the per-site cause vocabularies into a single global cause set and
+pads each site's \code{posterior_phi} matrix to that full width, filling
 unobserved causes with zero. Optionally re-orders rows to match a reference
 row hash before cause alignment.
+}
+\details{
+Cause order is determined by sorting the union of all sites' cause IDs.
+When all IDs coerce to numeric without \code{NA}, numeric order is used
+(e.g., PHMRC integer causes 1..34); otherwise lexicographic order is used.
+Sorting is required for correct prediction decoding: the Gibbs sampler and
+posterior-predictive sampler communicate via 1-indexed \emph{positions} into
+\code{global_causes}, so position \eqn{k} must map to the same cause label
+regardless of site-combination order.
 }
 \keyword{internal}

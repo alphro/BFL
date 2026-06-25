@@ -13,11 +13,13 @@ score_BFL(fit, Y_eval, pi_true = NULL, eval_idx = NULL, seed = NULL)
 \code{fit$n_total}).}
 
 \item{pi_true}{Optional named numeric vector of true class prevalences.
-If \code{NULL}, computed empirically from \code{Y_eval}.}
+If \code{NULL}, computed empirically: from \code{Y_eval[eval_idx]} when
+\code{fit$label_shift = TRUE}, or from all of \code{Y_eval} otherwise.}
 
 \item{eval_idx}{Optional integer indices defining the evaluation subset for
 top-1 and balanced accuracy (e.g. held-out unlabeled rows).
-If \code{NULL}, all \code{N} rows are used.}
+If \code{NULL}, all \code{N} rows are used. \emph{Required} when
+\code{fit$label_shift = TRUE}.}
 
 \item{seed}{Optional integer seed for reproducible posterior sampling.}
 }
@@ -25,11 +27,17 @@ If \code{NULL}, all \code{N} rows are used.}
 A list with components:
 \describe{
 \item{top1_acc}{Top-1 accuracy on \code{eval_idx} rows.}
-\item{balanced_acc}{Balanced accuracy (mean per-class recall) on
-\code{eval_idx} rows.}
+\item{balanced_acc}{Balanced accuracy — macro-average recall over causes
+observed in the evaluation truth labels.  Matches
+\code{caret::confusionMatrix(...)$byClass[,"Recall"]} averaged over
+observed classes.}
 \item{csmf_acc}{Overall CSMF accuracy (with automatic correction if
 Stan saw a subset of rows).}
-\item{conf_mat}{Confusion matrix (truth \eqn{\times} predicted).}
+\item{conf_mat}{Full diagnostic confusion matrix (truth \eqn{\times}
+predicted) over all \code{fit$causes}; rows = truth, cols = predicted.}
+\item{conf_mat_bal}{Observed-cause confusion matrix used to compute
+\code{balanced_acc}; rows = Prediction, cols = Reference (caret
+orientation), restricted to \code{sort(unique(ytrue_eval))}.}
 \item{pi_hat}{Posterior mean class prevalences after CSMF correction.}
 \item{pi_true}{True class prevalences used for evaluation.}
 \item{csmf_error_by_cause}{Named numeric: \code{pi_hat - pi_true}
@@ -42,10 +50,31 @@ balanced accuracy, CSMF accuracy, a confusion matrix, and per-cause
 prevalence errors.
 }
 \details{
-CSMF correction is applied automatically when \code{fit$stan_idx}
-covers fewer rows than \code{fit$n_total} (Domain/Mix variants).
-The correction uses \code{fit$nLc} — labeled-row counts for rows
-outside Stan — which are stored by \code{run_BFL()} at fit time.
+\strong{Balanced accuracy} is defined as the macro-average recall over
+causes that actually appear in \code{ytrue_eval} (the evaluation truth
+labels).  Causes absent from the evaluation set are excluded from the
+average, matching the convention used by
+\code{caret::confusionMatrix(...)$overall["Balanced Accuracy"]} and
+\code{caret::confusionMatrix(...)$byClass[,"Recall"]}.
+
+Concretely: a 2-D confusion matrix is built with \strong{Prediction} as
+rows and \strong{Reference} (truth) as columns, restricted to
+\code{sort(unique(ytrue_eval))}.  Per-class recall is
+\code{diag / colSums}; classes with zero reference count receive
+\code{NA} and are excluded via \code{na.rm = TRUE}.  The full
+all-cause confusion matrix is retained separately for diagnostics.
+
+CSMF computation depends on \code{fit$label_shift}:
+\itemize{
+\item \strong{No shift} (\code{label_shift = FALSE}): \code{pi_true} is the
+full-dataset prevalence from \code{Y_eval}. A correction is applied when
+Stan only saw a subset of rows (Domain/Mix variants), using \code{fit$nLc}
+— labeled-row counts outside Stan — stored by \code{run_BFL()}.
+Formula: \code{(n_stan * pi_hat_raw + nLc) / n_total}.
+\item \strong{Label shift} (\code{label_shift = TRUE}): \code{pi_true} is
+the prevalence of the \emph{unlabeled evaluation subset} (\code{eval_idx}).
+No correction is applied; \code{eval_idx} must be provided.
+}
 }
 \seealso{
 \code{\link{run_BFL}}, \code{\link{plot_score_BFL}}

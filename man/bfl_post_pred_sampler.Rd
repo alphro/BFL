@@ -12,33 +12,24 @@ bfl_post_pred_sampler(
 )
 }
 \arguments{
-\item{posterior_phi}{Array (I x C x M) of per-observation class scores/likelihoods
-from local models, aligned to global classes.}
+\item{posterior_phi}{Array (I x C x M) of per-observation class scores.}
 
-\item{posterior_lambda}{Array (S x C x M) of posterior draws for per-class model
-weights.}
+\item{posterior_lambda}{Array (S x C x M) of posterior model-weight draws.}
 
-\item{posterior_pi}{Matrix (S x C) of posterior draws for class prevalence.}
+\item{posterior_pi}{Matrix (S x C) of posterior cause-fraction draws.}
 
 \item{seed}{Optional integer seed for reproducible sampling.}
 }
 \value{
-A list with components:
+A list with:
 \describe{
 \item{posterior_pred_Y_prob_mean}{Matrix (I x C) of posterior predictive
 class probabilities averaged over all S draws.}
-\item{posterior_pred_Y}{Matrix (S x I) of sampled class indices from the
-posterior predictive distribution.}
+\item{posterior_pred_Y}{Matrix (S x I) of sampled class indices (1..C).}
 }
 }
 \description{
 Computes posterior predictive class probabilities and sampled class draws
 for each observation given posterior draws of \code{lambda} and \code{pi}.
-}
-\details{
-Memory-efficient implementation: draws are processed one at a time.
-Only the running mean (I x C) and integer samples (S x I) are retained,
-never the full I x C x S probability array.  This keeps peak memory at
-O(I * C + S * I) rather than O(I * C * S).
 }
 \keyword{internal}

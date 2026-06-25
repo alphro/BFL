@@ -33,6 +33,8 @@
 #'
 #' @param aligned Output of `align_local_summaries()`. Must contain:
 #'   - `aligned_phi`: named list of N x C matrices (one per local model).
+#'   - `model_presence`: integer matrix (C x M) of structural cause membership
+#'     produced by `align_local_summaries()`.
 #'
 #' @return A Stan data list shared across all BFL variants.
 #'
@@ -57,15 +59,24 @@ build_bfl_stan_data <- function(aligned) {
   }
 
   # ----------------------------------------------------------
-  # model_presence: C x M
-  # Cause c is present in model m if any nonzero probability
-  # appears in that column
+  # model_presence: C x M  (structural cause membership)
+  #
+  # Taken directly from aligned$model_presence, which is built
+  # in align_local_summaries() from cause_ids — NOT from phi
+  # values.  A source that structurally contains a cause but
+  # whose phi has numerically underflowed to all-zeros still
+  # gets model_presence=1, so the underflow is visible to the
+  # run_bfl_gibbs() diagnostic rather than being silently
+  # reclassified as structural absence.
   # ----------------------------------------------------------
-  model_presence <- matrix(0L, nrow = C, ncol = M)
-  for (m in seq_len(M)) {
-    present <- colSums(phi_list[[m]] != 0) > 0
-    model_presence[, m] <- as.integer(present)
+  model_presence <- aligned$model_presence
+  if (is.null(model_presence)) {
+    stop(
+      "aligned$model_presence is missing. ",
+      "Re-run align_local_summaries() to regenerate it."
+    )
   }
+  stopifnot(identical(dim(model_presence), c(C, M)))
 
   list(
     # Dimensions
@@ -77,7 +88,7 @@ build_bfl_stan_data <- function(aligned) {
     # Cause indexing (canonicalized to 1..C)
     causes = as.integer(seq_len(C)),
 
-    # Model structure
+    # Model structure (structural, from cause_ids — not phi)
     model_presence = model_presence,
     count = as.integer(rowSums(model_presence)),
 

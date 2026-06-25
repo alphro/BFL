@@ -2,26 +2,36 @@
 % Please edit documentation in R/run_bfl_stan.R
 \name{run_bfl_stan}
 \alias{run_bfl_stan}
-\title{Run a BFL Stan model and extract posterior draws}
+\title{Run a BFL model and extract posterior draws}
 \usage{
 run_bfl_stan(
   stan_data,
-  stan_args,
-  variant = c("no_partial", "balanced", "unbalanced")
+  mcmc_args = list(),
+  gibbs_args = list(),
+  variant = c("no_partial", "balanced", "unbalanced"),
+  sampler = c("gibbs", "stan")
 )
 }
 \arguments{
 \item{stan_data}{Named list matching the Stan data block.}
 
-\item{stan_args}{List with Stan sampling args (iter, chains, seed, ...).}
+\item{mcmc_args}{List of shared MCMC controls: iter, chains, seed, and
+optionally init (Stan only, default "random").}
+
+\item{gibbs_args}{List of Gibbs-specific options: logistic_normal, mh_scale.
+Ignored when sampler = "stan".}
 
 \item{variant}{One of "no_partial", "balanced", "unbalanced".}
+
+\item{sampler}{One of "gibbs" or "stan". Gibbs is only available for
+"no_partial"; partial-label variants always fall through to Stan.}
 }
 \value{
-A list with posterior draws (pi, lambda, and optionally pi_O) and the Stan fit.
+A list with posterior draws (pi, lambda, and optionally pi_O) and
+the Stan fit object (NULL for Gibbs).
 }
 \description{
-Internal helper used by \code{run_BFL()}. Selects the appropriate Stan program
-for the requested variant, runs MCMC via \pkg{rstan}, and returns posterior draws.
+Internal helper used by \code{run_BFL()}. Dispatches to the Gibbs sampler
+or Stan depending on \code{sampler} and \code{variant}.
 }
 \keyword{internal}
