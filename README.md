@@ -16,7 +16,7 @@ devtools::install_local("/path/to/BFLpkg")
 install.packages(".", repos = NULL, type = "source")
 ```
 
-**Dependencies:** `rstan`, `ggplot2`, `dplyr`, `tibble`, `scales`, `rlang`
+**Dependencies:** `rstan`, `Rcpp`, `ggplot2`, `dplyr`, `tibble`, `scales`, `rlang`
 
 ---
 
@@ -74,6 +74,17 @@ Set `label_shift = TRUE` in `run_BFL()` to use `partial_labels_shift_true` (unba
 
 ---
 
+## Samplers
+
+`run_BFL()` aggregates with either backend via the `sampler` argument:
+
+- **`sampler = "gibbs"`** (default) — fast conjugate **Rcpp Gibbs** sampler. `gibbs_args = list(logistic_normal = FALSE)` uses a Dirichlet prior (`gibbs_dir`); `list(logistic_normal = TRUE, mh_scale = 0.25)` matches Stan's logistic-normal prior via a Metropolis step (`gibbs_ln`).
+- **`sampler = "stan"`** — the original Stan/NUTS path.
+
+Both give the same `pi`/`lambda` up to MCMC noise; Gibbs is roughly **10–15× faster**. Shared MCMC controls go in `mcmc_args = list(iter, chains, seed)`. (Partial-label variants always run through Stan-equivalent logic regardless of `sampler`.)
+
+---
+
 ## Core workflow
 
 ```r
@@ -101,7 +112,9 @@ fit <- run_BFL(
   local_summaries = local_summaries,
   X_target        = X_target,
   Y_target        = Y_target,     # NA for unlabeled records; NULL for Base
-  stan_args       = list(iter = 4000, chains = 4, seed = 42)
+  sampler         = "gibbs",      # "gibbs" (default, fast) or "stan"
+  mcmc_args       = list(iter = 2000, chains = 4, seed = 42),
+  gibbs_args      = list(logistic_normal = FALSE)   # ignored when sampler = "stan"
 )
 
 # 4. Inspect results
@@ -176,6 +189,38 @@ An object of class `"BFL"`:
 | `no_partial_labels.stan` | Base, Domain | `Y_target` is NULL, or all labeled rows fall outside Stan |
 | `partial_labels_shift_false.stan` | Partial, Mix | Some Stan rows have known labels; `label_shift = FALSE` |
 | `partial_labels_shift_true.stan` | Partial (shift), Mix (shift) | Same but `label_shift = TRUE` |
+
+---
+
+## Developer Log
+
+> **BFL is born! 🍼 → 📦 — baby steps to a big package.** A running, lightly-curated history of what changed and why. Newest first.
+
+**Now — `bflpkg-newversion` tree.** Spun up a separate dev worktree/branch to prototype the next API: decouple `Y_target` into a Stan-aligned label vector (1:1 with `local_summaries`) plus a separate `Y_held` for the CSMF correction — removing the `n_stan` vs `n_total` / `is.na` special-casing and the full-`X_target` requirement for Domain.
+
+**June 2026.**
+- **Severe-shift Domain fixed** — cause-ID alignment bug. Phi was expanded straight to the global cause set on the unlabeled rows; corrected to expand source → per-site local → global, so `lambda` distributes load across *all* causes instead of collapsing.
+- CHAMPS **golden realign** (`nchain=1, Nitr=2000`, drop 2000 phi draws) — base CSMF back to ~0.84; added a phi-seed scan for batch selection.
+- Modular **CHAMPS + PHMRC result pipelines** (per-batch, per-shift, gibbs/stan), Hummingbird SLURM orchestration.
+- Figures 08 (prevalence vs. truth), 09 (CSMF + balanced acc), 10 (λ heatmap) rebuilt CSV/cache-driven.
+
+**Apr–May 2026.**
+- **C++ Gibbs sampler** added alongside Stan (`gibbs_dir` Dirichlet / `gibbs_ln` logistic-normal MH) — ~10–15× faster, matches Stan on `pi`/`lambda`; C++ posterior-predictive sampler.
+- **BFL-yz** P(X|Y,Z) extraction implemented in C++ (4 hrs → 15 min runtime).
+- Hummingbird mass runs across no/mild/severe shift; **OpenVA / InSilicoVA** base models and pooled/joint LCVA comparisons; LCVA-multi and GBQL (β = 0.5, 50).
+- Balanced-accuracy convention settled (macro-recall over *observed* causes).
+
+**Mar 2026.**
+- **`model` argument removed from `run_BFL()`** — Base/Domain/Partial/Mix now auto-inferred from `local_summaries` + `Y_target` structure (index detection).
+- `run_BFL_yz()` — extracts P(X|Y,Z) from raw LCVA fits, passes K×M base models into the Stan layer (log-space normalized for stability).
+- **BFL2 package**: S3 methods (`print`/`summary`/`plot`), cleaner API, redundant prototype code removed; `pi`/`lambda`/`phi` verified identical to the reference implementation.
+
+**Jan–Feb 2026.**
+- **Row-level hashing + automatic reordering** so all locals align to `X_target`.
+- Base validated across all 6 sites; Domain validated; Partial/Mix debugged (traced to the CSMF split structure).
+- Clean three-stage workflow: **Local (LCVA) → Global (BFL) → Predict**; initial vignette; package v0.1.
+
+**Dec 2025 — born. 🎉** Read the BFL paper + Zoey's prototype, confirmed the latent/hierarchical structure and LCVA-federation identifiability issues, and built the minimal single-domain version as the seed of the package.
 
 ---
 
