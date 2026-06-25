@@ -194,33 +194,35 @@ An object of class `"BFL"`:
 
 ## Developer Log
 
-> **BFL is born! 🍼 → 📦 — baby steps to a big package.** A running, lightly-curated history of what changed and why. Newest first.
+> **BFL is born! 🍼 → 📦 — baby steps to a big package.** A version-by-version story, newest first. (Minor versions = steady progress; a new *major* version = a big redesign.)
 
-**Now — `bflpkg-newversion` tree.** Spun up a separate dev worktree/branch to prototype the next API: decouple `Y_target` into a Stan-aligned label vector (1:1 with `local_summaries`) plus a separate `Y_held` for the CSMF correction — removing the `n_stan` vs `n_total` / `is.na` special-casing and the full-`X_target` requirement for Domain.
+**v2.0 — in progress · "Spring cleaning" 🧹**
+- Separate experimental branch simplifying labeled-vs-unlabeled handling (decoupling the label vector from the CSMF correction).
 
-**June 2026.**
-- **Severe-shift Domain fixed** — cause-ID alignment bug. Phi was expanded straight to the global cause set on the unlabeled rows; corrected to expand source → per-site local → global, so `lambda` distributes load across *all* causes instead of collapsing.
-- CHAMPS **golden realign** (`nchain=1, Nitr=2000`, drop 2000 phi draws) — base CSMF back to ~0.84; added a phi-seed scan for batch selection.
-- Modular **CHAMPS + PHMRC result pipelines** (per-batch, per-shift, gibbs/stan), Hummingbird SLURM orchestration.
-- Figures 08 (prevalence vs. truth), 09 (CSMF + balanced acc), 10 (λ heatmap) rebuilt CSV/cache-driven.
+**v1.1 — Jun 2026 · "Cracking the hard case" 💪**
+- Fixed severe label-shift (cause-ID alignment, so weights spread across all causes).
+- Per-batch CHAMPS + PHMRC result pipelines with cluster orchestration.
+- Figures 08/09/10 rebuilt to run from saved results.
 
-**Apr–May 2026.**
-- **C++ Gibbs sampler** added alongside Stan (`gibbs_dir` Dirichlet / `gibbs_ln` logistic-normal MH) — ~10–15× faster, matches Stan on `pi`/`lambda`; C++ posterior-predictive sampler.
-- **BFL-yz** P(X|Y,Z) extraction implemented in C++ (4 hrs → 15 min runtime).
-- Hummingbird mass runs across no/mild/severe shift; **OpenVA / InSilicoVA** base models and pooled/joint LCVA comparisons; LCVA-multi and GBQL (β = 0.5, 50).
-- Balanced-accuracy convention settled (macro-recall over *observed* causes).
+**v1.0 — Apr–May 2026 · "It's a real package now!" 🚀**
+- C++ Gibbs sampler alongside Stan — ~10× faster, same results.
+- Added OpenVA / InSilicoVA and pooled/joint LCVA as comparison methods.
+- Large no/mild/severe-shift runs on Hummingbird; balanced-accuracy convention settled.
+- *(May 20 – Jun 11: developer off seeing family 👨‍👩‍👧 — a quieter stretch.)*
 
-**Mar 2026.**
-- **`model` argument removed from `run_BFL()`** — Base/Domain/Partial/Mix now auto-inferred from `local_summaries` + `Y_target` structure (index detection).
-- `run_BFL_yz()` — extracts P(X|Y,Z) from raw LCVA fits, passes K×M base models into the Stan layer (log-space normalized for stability).
-- **BFL2 package**: S3 methods (`print`/`summary`/`plot`), cleaner API, redundant prototype code removed; `pi`/`lambda`/`phi` verified identical to the reference implementation.
+**v0.3 — Mar 2026 · "Auto-pilot" 🤖**
+- `run_BFL()` auto-detects the variant (Base/Domain/Partial/Mix) — no model flag.
+- S3 `print`/`summary`/`plot` methods; cleaner API.
+- `run_BFL_yz()` — extracts P(X|Y,Z) from LCVA fits.
 
-**Jan–Feb 2026.**
-- **Row-level hashing + automatic reordering** so all locals align to `X_target`.
-- Base validated across all 6 sites; Domain validated; Partial/Mix debugged (traced to the CSMF split structure).
-- Clean three-stage workflow: **Local (LCVA) → Global (BFL) → Predict**; initial vignette; package v0.1.
+**v0.2 — Jan–Feb 2026 · "Finding its shape" 🧩**
+- Three-step workflow: local LCVA → global BFL → predict.
+- Row hashing + automatic alignment of inputs to `X_target`.
+- Base/Domain validated on all 6 sites; Partial/Mix debugged; initial vignette.
 
-**Dec 2025 — born. 🎉** Read the BFL paper + Zoey's prototype, confirmed the latent/hierarchical structure and LCVA-federation identifiability issues, and built the minimal single-domain version as the seed of the package.
+**v0.1 — Late 2025 · "BFL is born" 🎉**
+- Read the BFL paper + reference prototype.
+- Built the first minimal single-domain version.
 
 ---
 
