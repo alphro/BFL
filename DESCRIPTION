@@ -1,0 +1,26 @@
+Package: BFL
+Title: Bayesian Federated Learning for Verbal Autopsy
+Version: 0.1.0
+Authors@R: c(
+    person("Jason", "Teng", email = "jteng9@ucsc.edu", role = c("aut", "cre")),
+    person("Yu", "Zhu", email = "yzhu201@ucsc.edu", role = c("aut")),
+    person("Zehang Richard", "Li", email = "lizehang@ucsc.edu", role = c("aut"))
+    )
+Description: Implements Bayesian federated learning methods for verbal autopsy,
+    including partial-label handling and evaluation utilities.
+    Provides fitting, prediction, and summary tools for multi-site experiments.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports:
+    ggplot2,
+    rlang,
+    Rcpp (>= 1.0.0),
+    rstan,
+    scales
+LinkingTo:
+    Rcpp
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
