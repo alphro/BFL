@@ -44,14 +44,13 @@ print.BFL <- function(x, ...) {
 
   needs_correction <- !is.null(x$nLc)
   variant <- if (!x$has_labels) {
-    if (needs_correction) "Domain (no partial labels, subset to Stan)" else "Base (no partial labels)"
+    "no partial labels"
+  } else if (x$label_shift) {
+    "partial labels (shift)"
   } else {
-    if (x$label_shift) {
-      if (needs_correction) "Mix / label-shift" else "Partial / label-shift"
-    } else {
-      if (needs_correction) "Mix" else "Partial"
-    }
+    "partial labels (balanced)"
   }
+  if (needs_correction) variant <- paste0(variant, ", CSMF correction")
 
   cat("BFL Fit\n")
   cat(strrep("\u2500", 40), "\n", sep = "")

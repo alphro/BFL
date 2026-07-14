@@ -41,9 +41,9 @@ BFLpkg/
 │   └── validate_inputs.R            # Input validation helpers
 ├── inst/
 │   └── stan/
-│       ├── no_partial_labels.stan           # Base / Domain model
-│       ├── partial_labels_shift_false.stan  # Partial / Mix (no label shift)
-│       └── partial_labels_shift_true.stan   # Partial / Mix (label shift)
+│       ├── no_partial_labels.stan           # no target labels
+│       ├── partial_labels_shift_false.stan  # partial labels, balanced
+│       └── partial_labels_shift_true.stan   # partial labels, shift
 ├── scripts/
 │   └── reproducible_example.R
 └── tests/
@@ -53,18 +53,27 @@ BFLpkg/
 
 ---
 
-## BFL variants (input-driven)
+## Using target labels (or not)
 
-`run_BFL()` is decided entirely by **what you pass in** — there is no model-type flag and no row inference. The rows of `local_summaries`, `X_target` and `Y_target` must line up **1:1**; you assemble any labeled rows (and the self-model column) yourself before calling. Base/Domain/Partial/Mix are paper names, not code paths.
+`run_BFL()` has no "method" or variant flag — it just reads what you pass in. The only question is **what you know about your target**.
 
-| Paper name | `X_target` / phi rows | `Y_target` | Self-model column in `local_summaries`? | `Y_add` | `label_shift` | Stan model |
-|---|---|---|---|---|---|---|
-| **Base** | N | `NULL` | no | `NULL` | — | `no_partial_labels` |
-| **Domain** | N | `NULL` | yes (Tgt New) | held labels | — | `no_partial_labels` |
-| **Partial** | N+L (NA + labels) | length N+L | no | `NULL` | T/F | `partial_labels_shift_{false,true}` |
-| **Mix** | N+P (NA + labels) | length N+P | yes (Tgt New) | held labels | T/F | `partial_labels_shift_{false,true}` |
+**You have no labeled target records.** BFL aggregates your source models over the target and predicts every record. Pass `Y_target = NULL`.
 
-The package only checks three things: is `Y_target` `NULL`? is `Y_add` supplied? is `label_shift` set? `Y_add` carries held-out labels (for rows **not** in `X_target`) used solely for the CSMF correction `(n_total·π + nLc)/(n_total + n_add)`. Set `label_shift = TRUE` to use the unbalanced/shift Stan variant for Partial/Mix.
+**You have some labeled target records.** There are two ways to put them to work — use either, or both:
+
+1. **Add them as an extra source.** Fit a model on your labeled records and include it in `local_summaries` as one more entry, and pass those known labels via `Y_add`. Your labeled data becomes another "expert" in the ensemble, and the reported CSMF is corrected to account for the records you already know.
+2. **Constrain the prediction directly.** Put the labels in `Y_target` (with `NA` on the records you *don't* know); the sampler pins those records to their known causes while it infers the rest. Set `label_shift = TRUE` when the labeled and unlabeled records have different cause mixes.
+
+Everything lines up **1:1** — `local_summaries`, `X_target`, and `Y_target` share the same rows, and you assemble any labeled rows (and any extra source) before calling. At a glance:
+
+| What you have | `Y_target` | `Y_add` | extra source in `local_summaries`? |
+|---|---|---|---|
+| No labeled target | `NULL` | `NULL` | no |
+| Labeled data folded in as a source | `NULL` | known labels | yes |
+| Labels constrain the prediction | labels (`NA` on unknown) | `NULL` | no |
+| Both | labels (`NA` on unknown) | known labels | yes |
+
+When labels are present, `label_shift` picks the balanced (`FALSE`) or shift (`TRUE`) sampler. Internally the package only checks those three inputs; `Y_add` drives the CSMF correction `(n_total·π + nLc)/(n_total + n_add)`.
 
 ---
 
@@ -75,7 +84,7 @@ The package only checks three things: is `Y_target` `NULL`? is `Y_add` supplied?
 - **`sampler = "gibbs"`** (default) — fast conjugate **Rcpp Gibbs** sampler. `gibbs_args = list(logistic_normal = FALSE)` uses a Dirichlet prior (`gibbs_dir`); `list(logistic_normal = TRUE, mh_scale = 0.25)` matches Stan's logistic-normal prior via a Metropolis step (`gibbs_ln`).
 - **`sampler = "stan"`** — the original Stan/NUTS path.
 
-Both give the same `pi`/`lambda` up to MCMC noise; Gibbs is roughly **10–15× faster**. Shared MCMC controls go in `mcmc_args = list(iter, chains, seed)`. (Partial-label variants always run through Stan-equivalent logic regardless of `sampler`.)
+Both give the same `pi`/`lambda` up to MCMC noise; Gibbs is roughly **10–15× faster**. Shared MCMC controls go in `mcmc_args = list(iter, chains, seed)`. (Runs with partial labels always go through the Stan-equivalent logic regardless of `sampler`.)
 
 ---
 
@@ -105,7 +114,7 @@ local_summaries <- list(
 fit <- run_BFL(
   local_summaries = local_summaries,  # rows match X_target 1:1
   X_target        = X_target,
-  Y_target        = Y_target,     # NA for unlabeled records; NULL for Base/Domain
+  Y_target        = Y_target,     # NA for unlabeled records; NULL if you have no labels
   Y_add           = Y_add,        # held labels for the CSMF correction; NULL otherwise
   sampler         = "gibbs",      # "gibbs" (default, fast) or "stan"
   mcmc_args       = list(iter = 2000, chains = 4, seed = 42),
@@ -173,11 +182,11 @@ An object of class `"BFL"`:
 
 ## Stan models
 
-| File | Variant | When used |
+| File | Handles | When used |
 |------|---------|-----------|
-| `no_partial_labels.stan` | Base, Domain | `Y_target` is `NULL` (or all `NA`) |
-| `partial_labels_shift_false.stan` | Partial, Mix | `Y_target` has labels; `label_shift = FALSE` |
-| `partial_labels_shift_true.stan` | Partial (shift), Mix (shift) | Same but `label_shift = TRUE` |
+| `no_partial_labels.stan` | no target labels | `Y_target` is `NULL` (or all `NA`) |
+| `partial_labels_shift_false.stan` | partial labels, balanced | `Y_target` has labels; `label_shift = FALSE` |
+| `partial_labels_shift_true.stan` | partial labels, shift | Same but `label_shift = TRUE` |
 
 ---
 
@@ -188,7 +197,7 @@ An object of class `"BFL"`:
 **v2.0 — in progress · "Spring cleaning" 🧹**
 - `run_BFL()` is now input-driven: rows are 1:1 (`local_summaries` = `X_target` = `Y_target`), and the variant is decided by `Y_target`/`Y_add` — no more `n_stan` vs `n_total` inference.
 - New `Y_add` argument carries held-out labels for the CSMF correction `(n_total·π + nLc)/(n_total + n_add)` (previously inferred from rows outside Stan).
-- Removed the hash-based `stan_idx` matcher and the Domain `is.na(Y_target)` path; `stan_idx` is always `1:N`.
+- Removed the hash-based `stan_idx` matcher and the `is.na(Y_target)` row-inference path; `stan_idx` is always `1:N`.
 
 **v1.1 — Jun 2026 · "Cracking the hard case" 💪**
 - Fixed severe label-shift (cause-ID alignment, so weights spread across all causes).
@@ -201,13 +210,13 @@ An object of class `"BFL"`:
 - Large no/mild/severe-shift runs on Hummingbird; balanced-accuracy convention settled.
 
 **v0.3 — Mar 2026 · "Auto-pilot" 🤖**
-- `run_BFL()` auto-detects the variant (Base/Domain/Partial/Mix) — no model flag.
+- `run_BFL()` auto-detects the setup from its inputs — no model flag.
 - S3 `print`/`summary`/`plot` methods; cleaner API.
 
 **v0.2 — Jan–Feb 2026 · "Finding its shape" 🧩**
 - Three-step workflow: local LCVA → global BFL → predict.
 - Row hashing + automatic alignment of inputs to `X_target`.
-- Base/Domain validated on all 6 sites; Partial/Mix debugged.
+- Unlabeled and partial-label setups validated on all 6 sites.
 
 **v0.1 — Late 2025 · "BFL is born" 🎉**
 - Read the BFL paper + reference prototype.

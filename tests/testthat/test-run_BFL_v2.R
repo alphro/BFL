@@ -42,7 +42,7 @@ test_that("row invariant is enforced (no sampler needed)", {
   )
 })
 
-test_that("Base: Y_target NULL, no Y_add -> no_partial, no correction", {
+test_that("no labels: Y_target NULL, no Y_add -> no_partial, no correction", {
   skip_if_not(can_gibbs())
   ls <- make_ls(N = 12, seed = 2); X <- attr(ls, "X")
   f <- run_BFL(ls, X_target = X, Y_target = NULL, sampler = "gibbs",
@@ -54,7 +54,7 @@ test_that("Base: Y_target NULL, no Y_add -> no_partial, no correction", {
   expect_false(f$has_labels)
 })
 
-test_that("Domain-style: Y_target NULL + Y_add -> no_partial, nLc from Y_add", {
+test_that("labels folded in as a source: Y_target NULL + Y_add -> no_partial, nLc from Y_add", {
   skip_if_not(can_gibbs())
   ls <- make_ls(N = 12, seed = 3); X <- attr(ls, "X")
   Y_add <- c("c1", "c1", "c2", NA)            # NA entries are dropped
@@ -70,7 +70,7 @@ test_that("Domain-style: Y_target NULL + Y_add -> no_partial, nLc from Y_add", {
   expect_equal(sum(sc$pi_hat), 1, tolerance = 1e-8)
 })
 
-test_that("Partial: labels in Y_target -> balanced / unbalanced via label_shift", {
+test_that("labels constrain prediction: labels in Y_target -> balanced / unbalanced via label_shift", {
   skip_if_not(can_gibbs())   # variant detection runs before the sampler
   ls <- make_ls(N = 12, seed = 4); X <- attr(ls, "X")
   Y <- rep(NA_character_, 12); Y[1:4] <- c("c1", "c2", "c3", "c1")

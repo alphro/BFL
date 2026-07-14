@@ -22,7 +22,7 @@
 #' \itemize{
 #'   \item \strong{No shift} (\code{label_shift = FALSE}): \code{pi_true} is the
 #'     full-dataset prevalence from \code{Y_eval}. A correction is applied when
-#'     held labels were supplied to \code{run_BFL(Y_add = ...)} (Domain/Mix),
+#'     held labels were supplied to \code{run_BFL(Y_add = ...)},
 #'     using \code{fit$nLc} (cause counts of \code{Y_add}) and \code{fit$n_add}.
 #'     Formula: \code{(n_total * pi_hat_raw + nLc) / (n_total + n_add)}.
 #'   \item \strong{Label shift} (\code{label_shift = TRUE}): \code{pi_true} is

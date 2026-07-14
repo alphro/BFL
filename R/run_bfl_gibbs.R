@@ -9,9 +9,9 @@
 #' \describe{
 #'   \item{\code{"no_partial"}}{All causes unknown. Calls
 #'     \code{gibbs_bfl_cpp} with all-zero Y_known.}
-#'   \item{\code{"balanced"}}{Partial labels, single prevalence pi. Calls
+#'   \item{\code{"balanced"}}{With partial labels, a single prevalence pi. Calls
 #'     \code{gibbs_bfl_cpp(single_pi = TRUE)}.}
-#'   \item{\code{"unbalanced"}}{Partial labels, separate pi (unlabeled) and
+#'   \item{\code{"unbalanced"}}{With partial labels, separate pi (unlabeled) and
 #'     pi_O (labeled). Calls \code{gibbs_bfl_cpp(single_pi = FALSE)}.
 #'     Returns \code{pi_O} in addition to \code{pi} and \code{lambda}.}
 #' }

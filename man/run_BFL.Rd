@@ -35,7 +35,7 @@ giving target labels. Use \code{NA} for unlabeled records. If \code{NULL}
 \item{Y_add}{Optional character/factor vector of held-out labels for rows that
 are \emph{not} in \code{X_target}, used only for the CSMF correction
 \eqn{(n_{total}\hat\pi + n_{Lc})/(n_{total}+n_{add})}. Only meaningful when
-\code{label_shift = FALSE}. \code{NULL} = no correction (Base / Partial).}
+\code{label_shift = FALSE}. \code{NULL} = no CSMF correction.}
 
 \item{label_shift}{Logical; if \code{TRUE} and \code{Y_target} is provided,
 uses the unbalanced/label-shift Stan variant. Default \code{FALSE}.}
@@ -85,24 +85,23 @@ the caller assembles any labeled rows (and the self-model column) beforehand.
 }
 \section{What you pass in decides the model}{
 
+There is no variant flag. The Stan model and CSMF correction are chosen from
+three inputs only:
 \describe{
-\item{Base}{\code{Y_target = NULL}, \code{Y_add = NULL}, sources only.
-Stan uses the no-partial model.}
-\item{Domain}{\code{Y_target = NULL}; include a self-model ("Tgt New")
-column in \code{local_summaries}; pass the held labels as \code{Y_add}.
-Stan uses the no-partial model; \code{Y_add} drives the CSMF correction
-\eqn{(n_{total}\hat\pi + n_{Lc})/(n_{total}+n_{add})}.}
-\item{Partial}{\code{X_target} has the N+L assembled rows; \code{Y_target}
-is length N+L with \code{NA} on unlabeled rows and labels on the rest;
-\code{Y_add = NULL}. Stan uses the partial-label model
-(\code{label_shift} picks balanced vs unbalanced).}
-\item{Mix}{As Partial, plus a self-model column in \code{local_summaries}
-and held labels in \code{Y_add}.}
+\item{\code{Y_target}}{\code{NULL} (or all \code{NA}) selects the
+no-partial-label model. A vector with labels (\code{NA} on unlabeled
+rows, labels on the rest) selects the partial-label model.}
+\item{\code{Y_add}}{when supplied, its held-out labels drive the CSMF
+correction \eqn{(n_{total}\hat\pi + n_{Lc})/(n_{total}+n_{add})}; when
+\code{NULL}, no correction is applied.}
+\item{\code{label_shift}}{with partial labels, \code{FALSE} uses the
+balanced Stan variant, \code{TRUE} the unbalanced (shift) variant.}
 }
 
-The package never names Base/Domain/Partial/Mix internally — it only checks
-whether \code{Y_target} is \code{NULL}, whether \code{Y_add} is supplied, and
-\code{label_shift}. The self-model column is just another local summary.
+Any self-model or additional local model is just another entry in
+\code{local_summaries}. The caller assembles every row 1:1 with
+\code{X_target} (appending labeled rows where relevant) before calling; the
+package reads only the three inputs above and infers nothing else.
 }
 
 \seealso{
