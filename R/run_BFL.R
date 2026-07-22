@@ -44,12 +44,12 @@
 #'   \code{label_shift = FALSE}. \code{NULL} = no CSMF correction.
 #' @param label_shift Logical; if \code{TRUE} and \code{Y_target} is provided,
 #'   uses the unbalanced/label-shift Stan variant. Default \code{FALSE}.
-#' @param sampler One of \code{"gibbs"} (default) or \code{"stan"}.
-#'   \code{"gibbs"} uses the conjugate Rcpp Gibbs sampler, which is much faster
-#'   and applies when no partial labels enter the sampler (\code{no_partial}
-#'   variant).  \code{"stan"} forces the original Stan/NUTS path.  For
-#'   partial-label variants (\code{balanced}, \code{unbalanced}) Stan is always
-#'   used regardless of this argument.
+#' @param sampler One of \code{"gibbs"} (default) or \code{"stan"}. Both samplers
+#'   support all three variants (\code{no_partial}, \code{balanced},
+#'   \code{unbalanced}). \code{"gibbs"} uses the conjugate Rcpp Gibbs sampler,
+#'   which is much faster; \code{"stan"} runs the matching Stan/NUTS model. The
+#'   variant itself is chosen from the inputs (see above), not from this
+#'   argument, so partial labels work under either sampler.
 #' @param mcmc_args List of MCMC controls shared by both samplers: \code{iter}
 #'   (default 2000), \code{chains} (default 4), \code{seed} (default 12345),
 #'   and \code{init} (Stan only, default \code{"random"}).

@@ -1,2 +1,7 @@
 ^BFL\.Rproj$
 ^\.Rproj\.user$
+^data-raw$
+^scripts$
+^\.git$
+^\.gitignore$
+^\.DS_Store$

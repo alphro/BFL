@@ -194,7 +194,7 @@ An object of class `"BFL"`:
 
 > **BFL is born! 🍼 → 📦 — baby steps to a big package.** A version-by-version story, newest first. (Minor versions = steady progress; a new *major* version = a big redesign.)
 
-**v2.0 — in progress · "Spring cleaning" 🧹**
+**v2.0 — Jul 2026 · "Spring cleaning" 🧹**
 - `run_BFL()` is now input-driven: rows are 1:1 (`local_summaries` = `X_target` = `Y_target`), and the variant is decided by `Y_target`/`Y_add` — no more `n_stan` vs `n_total` inference.
 - New `Y_add` argument carries held-out labels for the CSMF correction `(n_total·π + nLc)/(n_total + n_add)` (previously inferred from rows outside Stan).
 - Removed the hash-based `stan_idx` matcher and the `is.na(Y_target)` row-inference path; `stan_idx` is always `1:N`.

@@ -1,6 +1,6 @@
 Package: BFL
 Title: Bayesian Federated Learning for Verbal Autopsy
-Version: 0.1.0
+Version: 2.0.0
 Authors@R: c(
     person("Jason", "Teng", email = "jteng9@ucsc.edu", role = c("aut", "cre")),
     person("Yu", "Zhu", email = "yzhu201@ucsc.edu", role = c("aut")),
@@ -22,5 +22,8 @@ Imports:
 LinkingTo:
     Rcpp
 Suggests:
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
 Config/testthat/edition: 3
